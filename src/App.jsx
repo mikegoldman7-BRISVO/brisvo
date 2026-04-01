@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 
 // ── SUPABASE CONFIG ────────────────────────────────────────────
-const SUPABASE_URL = "https://xpbiewlnmcsutmgyyqdg.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwYmlld2xubWNzdXRtZ3l5cWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDE0MjksImV4cCI6MjA5MDQ3NzQyOX0.R8pbEHvImFX7clE2kOVzN82SyjZB47hfAFbhoZJCoTY";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON;
 
 const sb = async (path, opts = {}) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
