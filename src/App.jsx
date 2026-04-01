@@ -271,7 +271,7 @@ function TalentModal({ talent, onClose }) {
           {talent.bio&&(
             <div className="modal-section">
               <div className="section-label" style={{color: colour}}>About</div>
-              <p className="modal-copy border-red-300 border-8">{talent.bio}</p>
+              <p className="modal-copy">{talent.bio}</p>
             </div>
           )}
           {talent.demos?.length>0&&(
