@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import "./App.css";
 
 // ── SUPABASE CONFIG ────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -90,6 +91,19 @@ const SEED_DEMOS = {
 
 const CATS = ["All","Corporate","Commercial","Character","Audiobook","E-Learning","Female","Male","IVR & On Hold","Jingle","Retail"];
 const accent = "#FF3D57";
+const NAV_ITEMS = [
+  { label: "Male Talent", type: "filter", value: "Male" },
+  { label: "Female Talent", type: "filter", value: "Female" },
+  { label: "Have You Heard?", type: "section", value: "newsletter" },
+  { label: "About", type: "section", value: "about" },
+  { label: "Studio Links", type: "section", value: "footer" },
+];
+const FOOTER_LINKS = ["Male Talent","Female Talent","Have You Heard?","About BrisVO","Studio Links","Rate Card","Disclaimer","Terms"];
+const OFFER_ITEMS = [
+  ["🎙","Find talent fast","Browse professional voices — filter by style, gender, accent"],
+  ["▶","Hear before you hire","Up to 6 demo reels per artist, stream instantly"],
+  ["✉","Book with ease","Direct enquiry form on every profile"],
+];
 
 // ── HELPERS ────────────────────────────────────────────────────
 function Avatar({ name, colour, size=180 }) {
@@ -110,7 +124,11 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
   const [cur, setCur] = useState("0:00");
   const [dur, setDur] = useState(null);
   const fmt = s => { if(!s||isNaN(s)) return null; const m=Math.floor(s/60),sec=Math.floor(s%60); return `${m}:${sec.toString().padStart(2,"0")}`; };
-  useEffect(()=>{ if(activeId!==demo.file_url&&playing){ref.current?.pause();setPlaying(false);}}, [activeId]);
+  useEffect(() => {
+    if (activeId !== demo.file_url) {
+      ref.current?.pause();
+    }
+  }, [activeId, demo.file_url]);
   const toggle = () => {
     const a=ref.current; if(!a) return;
     onActivate(demo.file_url);
@@ -121,6 +139,7 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
       <audio ref={ref} src={demo.file_url}
         onTimeUpdate={e=>{const a=e.target;setPct(a.duration?(a.currentTime/a.duration)*100:0);setCur(fmt(a.currentTime)||"0:00");}}
         onLoadedMetadata={e=>setDur(fmt(e.target.duration))}
+        onPause={()=>setPlaying(false)}
         onEnded={()=>{setPlaying(false);setPct(0);setCur("0:00");}}
       />
       <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",background:playing?colour+"18":"transparent"}} onClick={toggle}>
@@ -148,39 +167,40 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
 
 // ── TALENT CARD ────────────────────────────────────────────────
 function TalentCard({ talent, onClick }) {
-  const [hov, setHov] = useState(false);
   const [imgErr, setImgErr] = useState(false);
   const colour = talent.brand_color || "#FF3D57";
   return (
-    <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{cursor:"pointer",borderRadius:14,overflow:"hidden",position:"relative",aspectRatio:"2/3",
-        boxShadow:hov?`0 20px 48px ${colour}55`:"0 4px 16px rgba(0,0,0,0.18)",
-        transform:hov?"translateY(-5px) scale(1.02)":"none",
-        transition:"all 0.3s ease",border:hov?`3px solid ${colour}`:"3px solid transparent"}}>
-      <div style={{position:"absolute",inset:0,background:colour}}>
+    <button
+      type="button"
+      className="talent-card"
+      onClick={onClick}
+      style={{ "--talent-color": colour, "--talent-shadow": `${colour}55` }}
+    >
+      <div className="talent-card__media">
         {imgErr?<Avatar name={talent.name} colour={colour} size={200}/>:
           <img src={talent.photo_url} alt={talent.name} onError={()=>setImgErr(true)}
-            style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"top center",
-              filter:hov?"none":"grayscale(100%) contrast(1.1)",transition:"filter 0.35s",display:"block"}}/>
+            className="talent-card__image"
+            style={{objectPosition:"top center"}}
+          />
         }
       </div>
-      {!imgErr&&<div style={{position:"absolute",inset:0,background:colour,opacity:hov?0.25:0,transition:"opacity .3s",mixBlendMode:"multiply"}}/>}
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.05) 50%,transparent 100%)"}}/>
-      <div style={{position:"absolute",top:0,left:0,right:0,height:5,background:colour}}/>
+      {!imgErr&&<div className="talent-card__tint"/>}
+      <div className="talent-card__gradient"/>
+      <div className="talent-card__accent"/>
       {talent.demos?.length>0&&(
-        <div style={{position:"absolute",top:12,right:10,background:colour,color:"#000",fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:20}}>
+        <div className="talent-card__badge">
           {talent.demos.length}🎙
         </div>
       )}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 12px 16px"}}>
-        <div style={{fontFamily:"Georgia,serif",fontSize:17,fontWeight:700,color:"#fff",lineHeight:1.1,marginBottom:5}}>{talent.name}</div>
-        <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+      <div className="talent-card__meta">
+        <div className="talent-card__name">{talent.name}</div>
+        <div className="talent-card__tags">
           {(talent.categories||[]).slice(0,2).map(c=>(
-            <span key={c} style={{fontSize:8,fontWeight:800,letterSpacing:"1px",textTransform:"uppercase",background:colour,color:"#000",padding:"2px 7px",borderRadius:20}}>{c}</span>
+            <span key={c} className="talent-card__tag">{c}</span>
           ))}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -192,6 +212,14 @@ function TalentModal({ talent, onClose }) {
   const [enqSent, setEnqSent] = useState(false);
   const [enqLoading, setEnqLoading] = useState(false);
   const colour = talent.brand_color || "#FF3D57";
+
+  useEffect(() => {
+    const onKeyDown = e => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   const submitEnquiry = async () => {
     if(!enqForm.name||!enqForm.email||!enqForm.message) return;
@@ -208,74 +236,89 @@ function TalentModal({ talent, onClose }) {
   };
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20,backdropFilter:"blur(8px)"}}
-      onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:"#fff",maxWidth:740,width:"100%",maxHeight:"92vh",overflowY:"auto",borderRadius:20,position:"relative",boxShadow:`0 32px 80px ${colour}55`}}>
-        <button onClick={onClose} style={{position:"absolute",top:14,right:14,width:34,height:34,borderRadius:"50%",background:"rgba(255,255,255,0.95)",border:`2px solid ${colour}`,cursor:"pointer",fontSize:15,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,color:"#111"}}>✕</button>
-        <div style={{display:"flex",minHeight:300,borderRadius:"20px 20px 0 0",overflow:"hidden"}}>
-          <div style={{width:240,flexShrink:0,position:"relative",background:colour}}>
-            {imgErr?<div style={{width:"100%",minHeight:300}}><Avatar name={talent.name} colour={colour} size={240}/></div>:
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div
+        className="modal-panel modal-form"
+        style={{ "--modal-color": colour, "--modal-shadow": `${colour}55`, "--field-focus": colour }}
+      >
+        <button type="button" className="modal-close" onClick={onClose} style={{borderColor: colour}}>✕</button>
+        <div className="modal-header">
+          <div className="modal-media">
+            {imgErr?<div className="modal-media__fallback"><Avatar name={talent.name} colour={colour} size={240}/></div>:
               <img src={talent.photo_url} alt={talent.name} onError={()=>setImgErr(true)}
-                style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:"top center",display:"block",minHeight:300}}/>
+                className="modal-media__image"
+                style={{objectPosition:"top center"}}
+              />
             }
-            <div style={{position:"absolute",bottom:0,left:0,right:0,height:5,background:colour}}/>
+            <div className="modal-media__accent"/>
           </div>
-          <div style={{flex:1,background:`linear-gradient(135deg,${colour}ee,${colour}aa)`,padding:"32px 26px",display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
-            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:12}}>
+          <div className="modal-hero" style={{background:`linear-gradient(135deg,${colour}ee,${colour}aa)`}}>
+            <div className="modal-chip-list">
               {(talent.categories||[]).map(c=>(
-                <span key={c} style={{fontSize:9,fontWeight:800,letterSpacing:"1.5px",textTransform:"uppercase",background:"rgba(0,0,0,0.25)",color:"#fff",padding:"3px 10px",borderRadius:20}}>{c}</span>
+                <span key={c} className="modal-chip">{c}</span>
               ))}
             </div>
-            <h2 style={{fontFamily:"Georgia,serif",fontSize:34,fontWeight:700,color:"#fff",lineHeight:1,marginBottom:8}}>{talent.name}</h2>
-            <div style={{fontSize:11,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:"rgba(255,255,255,0.75)"}}>{talent.gender} · Australian Voice Artist</div>
+            <h2 className="modal-title">{talent.name}</h2>
+            <div className="modal-subtitle">{talent.gender} · Australian Voice Artist</div>
             {talent.demos?.length>0&&(
-              <div style={{marginTop:14,display:"inline-flex",alignItems:"center",gap:6,background:"rgba(0,0,0,0.25)",color:"#fff",padding:"6px 14px",borderRadius:20,fontSize:11,fontWeight:700,width:"fit-content"}}>
+              <div className="modal-demo-pill">
                 🎙 {talent.demos.length} demo reel{talent.demos.length>1?"s":""}
               </div>
             )}
           </div>
         </div>
-        <div style={{padding:"26px 30px 30px"}}>
+        <div className="modal-body">
           {talent.bio&&(
-            <div style={{marginBottom:22}}>
-              <div style={{fontSize:10,fontWeight:800,letterSpacing:"3px",textTransform:"uppercase",color:colour,marginBottom:10}}>About</div>
-              <p style={{fontSize:15,lineHeight:1.8,color:"#333",fontFamily:"Georgia,serif"}}>{talent.bio}</p>
+            <div className="modal-section">
+              <div className="section-label" style={{color: colour}}>About</div>
+              <p className="modal-copy">{talent.bio}</p>
             </div>
           )}
           {talent.demos?.length>0&&(
-            <div style={{marginBottom:22}}>
-              <div style={{fontSize:10,fontWeight:800,letterSpacing:"3px",textTransform:"uppercase",color:colour,marginBottom:12}}>Demo Reels</div>
+            <div className="modal-section">
+              <div className="section-label" style={{color: colour}}>Demo Reels</div>
               {talent.demos.map((d,i)=><DemoRow key={i} demo={d} colour={colour} activeId={activeDemo} onActivate={setActiveDemo}/>)}
             </div>
           )}
-          {/* ENQUIRY FORM */}
-          <div style={{borderTop:"1px solid #f0f0f0",paddingTop:22}}>
-            <div style={{fontSize:10,fontWeight:800,letterSpacing:"3px",textTransform:"uppercase",color:colour,marginBottom:14}}>Enquire About This Artist</div>
+          <div className="modal-form-section">
+            <div className="section-label" style={{color: colour}}>Enquire About This Artist</div>
             {enqSent?(
-              <div style={{background:`${colour}11`,border:`1.5px solid ${colour}44`,borderRadius:10,padding:"20px 24px",textAlign:"center"}}>
-                <div style={{fontSize:28,marginBottom:8}}>✅</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:18,color:"#111",marginBottom:4}}>Message sent!</div>
-                <div style={{fontSize:13,color:"#888"}}>We've received your enquiry and will be in touch shortly.</div>
+              <div className="modal-success" style={{background:`${colour}11`,borderColor:`${colour}44`}}>
+                <div className="modal-success__icon">✅</div>
+                <div className="modal-success__title">Message sent!</div>
+                <div className="modal-success__text">We've received your enquiry and will be in touch shortly.</div>
               </div>
             ):(
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div className="form-grid form-grid--two modal-form-grid">
                 {[["Name *","name","text","Your name"],["Email *","email","email","your@email.com"],["Company","company","text","Your company"],["Project Type","project_type","text","e.g. TVC, Radio, Corporate"]].map(([lbl,k,type,ph])=>(
-                  <div key={k}>
-                    <label style={{display:"block",fontSize:9,letterSpacing:"2px",textTransform:"uppercase",color:"#aaa",marginBottom:5,fontWeight:700}}>{lbl}</label>
-                    <input type={type} value={enqForm[k]} onChange={e=>setEnqForm(f=>({...f,[k]:e.target.value}))} placeholder={ph}
-                      style={{width:"100%",padding:"9px 11px",border:"1.5px solid #eee",background:"#fafafa",fontFamily:"Montserrat,sans-serif",fontSize:13,color:"#111",borderRadius:8,outline:"none"}}
-                      onFocus={e=>e.target.style.borderColor=colour} onBlur={e=>e.target.style.borderColor="#eee"}/>
+                  <div key={k} className="form-field">
+                    <label className="field-label">{lbl}</label>
+                    <input
+                      type={type}
+                      value={enqForm[k]}
+                      onChange={e=>setEnqForm(f=>({...f,[k]:e.target.value}))}
+                      placeholder={ph}
+                      className="field-input"
+                    />
                   </div>
                 ))}
-                <div style={{gridColumn:"1 / -1"}}>
-                  <label style={{display:"block",fontSize:9,letterSpacing:"2px",textTransform:"uppercase",color:"#aaa",marginBottom:5,fontWeight:700}}>Message *</label>
-                  <textarea value={enqForm.message} onChange={e=>setEnqForm(f=>({...f,message:e.target.value}))} placeholder="Tell us about your project…"
-                    style={{width:"100%",padding:"9px 11px",border:"1.5px solid #eee",background:"#fafafa",fontFamily:"Montserrat,sans-serif",fontSize:13,color:"#111",borderRadius:8,outline:"none",minHeight:80,resize:"vertical"}}
-                    onFocus={e=>e.target.style.borderColor=colour} onBlur={e=>e.target.style.borderColor="#eee"}/>
+                <div className="form-field form-span-full">
+                  <label className="field-label">Message *</label>
+                  <textarea
+                    value={enqForm.message}
+                    onChange={e=>setEnqForm(f=>({...f,message:e.target.value}))}
+                    placeholder="Tell us about your project…"
+                    className="field-input field-textarea"
+                  />
                 </div>
-                <div style={{gridColumn:"1 / -1"}}>
-                  <button onClick={submitEnquiry} disabled={enqLoading}
-                    style={{width:"100%",padding:13,background:colour,color:"#fff",border:"none",cursor:enqLoading?"wait":"pointer",fontFamily:"Montserrat,sans-serif",fontSize:11,fontWeight:800,letterSpacing:"2px",textTransform:"uppercase",borderRadius:8,boxShadow:`0 4px 16px ${colour}44`,opacity:enqLoading?0.7:1}}>
+                <div className="form-span-full">
+                  <button
+                    type="button"
+                    onClick={submitEnquiry}
+                    disabled={enqLoading}
+                    className="site-button site-button--primary site-button--full"
+                    style={{ "--button-color": colour, "--button-shadow": `${colour}44`, opacity: enqLoading ? 0.7 : 1 }}
+                  >
                     {enqLoading?"Sending…":"Send Enquiry"}
                   </button>
                 </div>
@@ -294,15 +337,14 @@ function NewsletterSection() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if(!name.trim()||!email.trim()) return;
-    setLoading(true); setError("");
+    setLoading(true);
     try {
       await sb("subscribers", { method:"POST", body: JSON.stringify({name:name.trim(), email:email.trim()}), prefer:"return=minimal" });
       setSubmitted(true);
-    } catch(e) {
+    } catch {
       // May fail if email already subscribed — still show success
       setSubmitted(true);
     }
@@ -310,40 +352,48 @@ function NewsletterSection() {
   };
 
   return (
-    <div style={{background:"linear-gradient(135deg,#1a0030,#0a0a1a)",padding:"64px 40px",borderTop:"1px solid #1e1e1e",position:"relative",overflow:"hidden"}}>
+    <section id="newsletter" className="newsletter-section anchor-target">
       {["#7C3AED","#FF3D57","#00C48C"].map((c,i)=>(
-        <div key={i} style={{position:"absolute",width:300,height:300,borderRadius:"50%",background:c,opacity:0.06,filter:"blur(70px)",
-          left:i===0?"5%":i===1?"55%":"30%",top:i===0?"-10%":i===1?"20%":"50%",pointerEvents:"none"}}/>
+        <div
+          key={i}
+          className="newsletter-section__glow"
+          style={{background:c,left:i===0?"5%":i===1?"55%":"30%",top:i===0?"-10%":i===1?"20%":"50%"}}
+        />
       ))}
-      <div style={{maxWidth:560,margin:"0 auto",textAlign:"center",position:"relative"}}>
-        <div style={{fontSize:10,fontWeight:800,letterSpacing:"4px",textTransform:"uppercase",color:accent,marginBottom:16}}>Stay Connected</div>
-        <h3 style={{fontFamily:"Georgia,serif",fontSize:"clamp(26px,4vw,40px)",fontWeight:400,color:"#fff",fontStyle:"italic",marginBottom:12,lineHeight:1.2}}>Sign up to our newsletter</h3>
-        <p style={{color:"rgba(255,255,255,0.45)",fontSize:14,lineHeight:1.8,marginBottom:36}}>Stay up to date with the latest news, special events, membership opportunities, and promotions.</p>
+      <div className="newsletter-section__inner content-shell content-shell--narrow">
+        <div className="section-eyebrow">Stay Connected</div>
+        <h3 className="newsletter-section__title">Sign up to our newsletter</h3>
+        <p className="newsletter-section__copy">Stay up to date with the latest news, special events, membership opportunities, and promotions.</p>
         {submitted?(
-          <div style={{background:"rgba(0,196,140,0.12)",border:"1.5px solid #00C48C",borderRadius:12,padding:"24px 32px",display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
-            <div style={{fontSize:32}}>✅</div>
-            <div style={{fontFamily:"Georgia,serif",fontSize:20,color:"#fff",fontStyle:"italic"}}>You're on the list!</div>
-            <div style={{fontSize:13,color:"rgba(255,255,255,0.5)"}}>Thanks {name.split(" ")[0]} — we'll be in touch with all things BrisVO.</div>
+          <div className="newsletter-success">
+            <div className="newsletter-success__icon">✅</div>
+            <div className="newsletter-success__title">You're on the list!</div>
+            <div className="newsletter-success__text">Thanks {name.split(" ")[0]} — we'll be in touch with all things BrisVO.</div>
           </div>
         ):(
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="newsletter-form">
+            <div className="form-grid form-grid--two newsletter-form-grid">
               {[["Your Name",name,setName,"text"],["Email Address",email,setEmail,"email"]].map(([ph,val,set,type])=>(
                 <input key={ph} type={type} value={val} onChange={e=>set(e.target.value)} placeholder={ph}
                   onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
-                  style={{width:"100%",padding:"13px 16px",background:"rgba(255,255,255,0.07)",border:"1.5px solid rgba(255,255,255,0.12)",color:"#fff",fontFamily:"Montserrat,sans-serif",fontSize:14,borderRadius:8,outline:"none"}}
-                  onFocus={e=>e.target.style.borderColor=accent} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,0.12)"}/>
+                  className="field-input field-input--dark"
+                />
               ))}
             </div>
-            <button onClick={handleSubmit} disabled={loading}
-              style={{width:"100%",padding:"14px",background:accent,color:"#fff",border:"none",cursor:loading?"wait":"pointer",fontFamily:"Montserrat,sans-serif",fontSize:11,fontWeight:800,letterSpacing:"2px",textTransform:"uppercase",borderRadius:8,boxShadow:`0 6px 20px ${accent}44`,opacity:loading?0.7:1}}>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="site-button site-button--primary site-button--full"
+              style={{ "--button-color": accent, "--button-shadow": `${accent}44`, opacity: loading ? 0.7 : 1 }}
+            >
               {loading?"Signing up…":"Sign Up"}
             </button>
-            <p style={{fontSize:11,color:"rgba(255,255,255,0.2)",marginTop:4}}>No spam. Unsubscribe anytime.</p>
+            <p className="newsletter-form__hint">No spam. Unsubscribe anytime.</p>
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -356,14 +406,18 @@ export default function App() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
-  const [view, setView] = useState("home");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [, setView] = useState("home");
 
-  // Load artists from Supabase
+  const fetchArtistsData = async () => {
+    const data = await sb("artists?select=*,demos(*)&order=sort_order.asc&is_published=eq.true");
+    data.forEach(a => { if(a.demos) a.demos.sort((x,y)=>x.sort_order-y.sort_order); });
+    return data;
+  };
+
   const loadArtists = async () => {
     try {
-      const data = await sb("artists?select=*,demos(*)&order=sort_order.asc&is_published=eq.true");
-      // Sort demos by sort_order
-      data.forEach(a => { if(a.demos) a.demos.sort((x,y)=>x.sort_order-y.sort_order); });
+      const data = await fetchArtistsData();
       setArtists(data);
     } catch(e) {
       console.error("Failed to load artists:", e);
@@ -452,183 +506,312 @@ export default function App() {
     setSeeding(false);
   };
 
-  useEffect(() => { loadArtists(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+
+    const initArtists = async () => {
+      try {
+        const data = await fetchArtistsData();
+        if (!cancelled) setArtists(data);
+      } catch(e) {
+        if (!cancelled) console.error("Failed to load artists:", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    initArtists();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => {
+    document.body.classList.toggle("body-lock", menuOpen || Boolean(selected));
+    return () => document.body.classList.remove("body-lock");
+  }, [menuOpen, selected]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = e => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth > 1024) setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [menuOpen]);
 
   const filtered = artists.filter(t => {
     const mc = filter==="All"||(t.categories||[]).includes(filter);
     const ms = !search||t.name.toLowerCase().includes(search.toLowerCase());
     return mc && ms;
   });
+  const scrollToSection = id => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const handleNavSelect = item => {
+    setMenuOpen(false);
+    if (item.type === "filter") {
+      setFilter(item.value);
+      setSearch("");
+      scrollToSection("artists");
+      return;
+    }
+    scrollToSection(item.value);
+  };
+  const handleViewSelect = nextView => {
+    setView(nextView);
+    setMenuOpen(false);
+  };
 
   if (loading) return (
-    <div style={{minHeight:"100vh",background:"#0d0d0d",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
-      <div style={{fontFamily:"Georgia,serif",fontSize:32,fontWeight:700,color:"#fff",letterSpacing:3}}>Bris<span style={{color:accent}}>VO</span></div>
-      <div style={{color:"rgba(255,255,255,0.4)",fontSize:13,letterSpacing:2,textTransform:"uppercase",fontFamily:"Montserrat,sans-serif"}}>Loading talent…</div>
-      <div style={{width:40,height:40,border:`3px solid rgba(255,255,255,0.1)`,borderTop:`3px solid ${accent}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <div className="loading-screen">
+      <div className="brand-mark brand-mark--large">Bris<span style={{color:accent}}>VO</span></div>
+      <div className="loading-screen__label">Loading talent…</div>
+      <div className="loading-screen__spinner" style={{borderTopColor: accent}}/>
     </div>
   );
 
   return (
-    <div style={{minHeight:"100vh",background:"#0d0d0d"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Montserrat,sans-serif;}`}</style>
-
-      {/* NAV */}
-      <nav style={{background:"#0d0d0d",padding:"0 40px",display:"flex",alignItems:"center",justifyContent:"space-between",height:66,position:"sticky",top:0,zIndex:100,borderBottom:"1px solid #222"}}>
-        <div style={{display:"flex",alignItems:"center",gap:32}}>
-          <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:"#fff",letterSpacing:3}}>Bris<span style={{color:accent}}>VO</span></div>
-          <div style={{display:"flex",gap:18}}>
-            {["Male Talent","Female Talent","Have You Heard?","About","Studio Links"].map(l=>(
-              <span key={l} style={{color:"rgba(255,255,255,0.4)",fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",cursor:"pointer",transition:"color .2s"}}
-                onMouseEnter={e=>e.target.style.color=accent} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.4)"}>{l}</span>
-            ))}
+    <div className="app-shell">
+      <nav className="site-nav">
+        <div className="site-nav__bar">
+          <div className="site-nav__left">
+            <div className="brand-mark brand-mark--medium">Bris<span style={{color:accent}}>VO</span></div>
+            <div className="site-nav__links">
+              {NAV_ITEMS.map(item=>(
+                <button type="button" key={item.label} className="nav-link" onClick={()=>handleNavSelect(item)}>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="site-nav__actions">
+            <div className="site-nav__status">
+              <div
+                className="site-nav__status-dot"
+                style={{
+                  background: artists.length>0?"#00C48C":"#FFB400",
+                  boxShadow: artists.length>0?"0 0 6px #00C48C":"0 0 6px #FFB400",
+                }}
+              />
+              <span className="site-nav__status-text">{artists.length>0?`${artists.length} artists live`:"DB empty"}</span>
+            </div>
+            <button
+              type="button"
+              onClick={()=>handleViewSelect("login")}
+              className="site-button site-button--ghost site-button--compact site-nav__login"
+            >
+              Artist Login
+            </button>
+            <button
+              type="button"
+              onClick={()=>handleViewSelect("register")}
+              className="site-button site-button--primary site-button--compact"
+              style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
+            >
+              Join BrisVO
+            </button>
+            <button
+              type="button"
+              className={`site-nav__toggle${menuOpen ? " is-open" : ""}`}
+              aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-navigation"
+              onClick={() => setMenuOpen(open => !open)}
+            >
+              <span className="sr-only">{menuOpen ? "Close navigation menu" : "Open navigation menu"}</span>
+              <span className="site-nav__toggle-line site-nav__toggle-line--top"/>
+              <span className="site-nav__toggle-line site-nav__toggle-line--middle"/>
+              <span className="site-nav__toggle-line site-nav__toggle-line--bottom"/>
+            </button>
           </div>
         </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {/* Supabase status indicator */}
-          <div style={{display:"flex",alignItems:"center",gap:5,marginRight:8}}>
-            <div style={{width:7,height:7,borderRadius:"50%",background: artists.length>0?"#00C48C":"#FFB400",boxShadow: artists.length>0?"0 0 6px #00C48C":"0 0 6px #FFB400"}}/>
-            <span style={{color:"rgba(255,255,255,0.3)",fontSize:9,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase"}}>
-              {artists.length>0?`${artists.length} artists live`:"DB empty"}
-            </span>
+        <div id="mobile-navigation" className={`mobile-nav${menuOpen ? " is-open" : ""}`}>
+          <div className="mobile-nav__inner">
+            {NAV_ITEMS.map(item=>(
+              <button type="button" key={item.label} className="nav-link mobile-nav__link" onClick={()=>handleNavSelect(item)}>
+                {item.label}
+              </button>
+            ))}
+            <div className="mobile-nav__meta">
+              <div className="mobile-nav__status">
+                <div
+                  className="site-nav__status-dot"
+                  style={{
+                    background: artists.length>0?"#00C48C":"#FFB400",
+                    boxShadow: artists.length>0?"0 0 6px #00C48C":"0 0 6px #FFB400",
+                  }}
+                />
+                <span className="site-nav__status-text">{artists.length>0?`${artists.length} artists live`:"DB empty"}</span>
+              </div>
+              <button
+                type="button"
+                onClick={()=>handleViewSelect("login")}
+                className="site-button site-button--ghost site-button--compact mobile-nav__login"
+              >
+                Artist Login
+              </button>
+            </div>
           </div>
-          <button onClick={()=>setView("login")} style={{padding:"7px 18px",background:"transparent",color:"rgba(255,255,255,0.6)",border:"1px solid rgba(255,255,255,0.2)",cursor:"pointer",fontFamily:"Montserrat,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",borderRadius:4}}
-            onMouseEnter={e=>{e.target.style.borderColor=accent;e.target.style.color=accent;}} onMouseLeave={e=>{e.target.style.borderColor="rgba(255,255,255,0.2)";e.target.style.color="rgba(255,255,255,0.6)";}}>
-            Artist Login
-          </button>
-          <button onClick={()=>setView("register")} style={{padding:"7px 18px",background:accent,color:"#fff",border:"none",cursor:"pointer",fontFamily:"Montserrat,sans-serif",fontSize:10,fontWeight:800,letterSpacing:"1.5px",textTransform:"uppercase",borderRadius:4,boxShadow:`0 4px 12px ${accent}44`}}>
-            Join BrisVO
-          </button>
         </div>
       </nav>
 
-      {/* HERO */}
-      <div style={{padding:"72px 40px 60px",background:"linear-gradient(135deg,#0d0d0d,#1a0a1a,#0d0d0d)",position:"relative",overflow:"hidden",borderBottom:"1px solid #222"}}>
+      <section className="hero-section">
         {["#FF3D57","#7C3AED","#00C48C","#FF6B1A"].map((c,i)=>(
-          <div key={i} style={{position:"absolute",width:350,height:350,borderRadius:"50%",background:c,opacity:0.07,filter:"blur(70px)",
-            left:i===0?"3%":i===1?"68%":i===2?"38%":"15%",top:i===0?"-5%":i===1?"-15%":i===2?"35%":"55%",pointerEvents:"none"}}/>
+          <div
+            key={i}
+            className="hero-section__glow"
+            style={{background:c,left:i===0?"3%":i===1?"68%":i===2?"38%":"15%",top:i===0?"-5%":i===1?"-15%":i===2?"35%":"55%"}}
+          />
         ))}
-        <div style={{position:"relative"}}>
-          <div style={{fontSize:10,fontWeight:800,letterSpacing:"4px",textTransform:"uppercase",color:accent,marginBottom:16}}>Brisbane Voice Artists</div>
-          <h1 style={{fontFamily:"Georgia,serif",fontSize:"clamp(48px,8vw,92px)",fontWeight:700,color:"#fff",lineHeight:1,marginBottom:4}}>making waves</h1>
-          <div style={{fontFamily:"Georgia,serif",fontSize:"clamp(18px,2.5vw,30px)",color:"rgba(255,255,255,0.28)",fontStyle:"italic",marginBottom:24,letterSpacing:3}}>since 1996</div>
-          <p style={{color:"rgba(255,255,255,0.4)",fontSize:14,maxWidth:500,lineHeight:1.8}}>Queensland's premier collection of professional voice talent — commercial, corporate, character, and beyond.</p>
+        <div className="hero-section__content">
+          <div className="section-eyebrow">Brisbane Voice Artists</div>
+          <h1 className="hero-section__title">making waves</h1>
+          <div className="hero-section__subtitle">since 1996</div>
+          <p className="hero-section__copy">Queensland's premier collection of professional voice talent — commercial, corporate, character, and beyond.</p>
         </div>
-      </div>
+      </section>
 
-      {/* SEED PANEL — shown only when DB is empty */}
       {artists.length===0&&!seeding&&(
-        <div style={{background:"#1a1a0a",border:"1px solid #FFB40044",padding:"24px 40px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}>
-          <div>
-            <div style={{color:"#FFB400",fontSize:12,fontWeight:700,marginBottom:4}}>⚡ Database is empty</div>
-            <div style={{color:"rgba(255,255,255,0.5)",fontSize:12}}>Click to seed all 31 BrisVO artists into Supabase</div>
+        <div className="status-banner status-banner--warning">
+          <div className="status-banner__content">
+            <div className="status-banner__title status-banner__title--warning">⚡ Database is empty</div>
+            <div className="status-banner__text">Click to seed all 31 BrisVO artists into Supabase</div>
           </div>
-          <button onClick={seedDatabase} style={{padding:"10px 28px",background:"#FFB400",color:"#000",border:"none",cursor:"pointer",fontFamily:"Montserrat,sans-serif",fontSize:11,fontWeight:800,letterSpacing:"1.5px",textTransform:"uppercase",borderRadius:8}}>
+          <button type="button" onClick={seedDatabase} className="site-button site-button--gold">
             Seed 31 Artists →
           </button>
         </div>
       )}
       {seeding&&(
-        <div style={{background:"#0a1a0a",border:"1px solid #00C48C44",padding:"20px 40px",display:"flex",alignItems:"center",gap:14}}>
-          <div style={{width:20,height:20,border:"2px solid rgba(255,255,255,0.1)",borderTop:"2px solid #00C48C",borderRadius:"50%",animation:"spin 0.8s linear infinite",flexShrink:0}}/>
-          <div style={{color:"#00C48C",fontSize:12,fontWeight:700}}>{seedMsg}</div>
+        <div className="status-banner status-banner--success">
+          <div className="status-banner__spinner"/>
+          <div className="status-banner__title status-banner__title--success">{seedMsg}</div>
         </div>
       )}
       {!seeding&&seedMsg&&artists.length>0&&(
-        <div style={{background:"#0a1a0a",border:"1px solid #00C48C44",padding:"16px 40px"}}>
-          <div style={{color:"#00C48C",fontSize:12,fontWeight:700}}>{seedMsg}</div>
+        <div className="status-banner status-banner--success">
+          <div className="status-banner__title status-banner__title--success">{seedMsg}</div>
         </div>
       )}
 
-      {/* FILTER + SEARCH */}
-      <div style={{background:"#111",borderBottom:"1px solid #1e1e1e",position:"sticky",top:66,zIndex:90}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 40px",flexWrap:"wrap",gap:8}}>
-          <div style={{display:"flex",gap:0,overflowX:"auto",scrollbarWidth:"none"}}>
+      <div className="filter-bar">
+        <div className="filter-bar__inner">
+          <div className="filter-bar__tabs">
             {CATS.map(c=>(
-              <button key={c} onClick={()=>setFilter(c)}
-                style={{padding:"13px 15px",background:"none",border:"none",color:filter===c?accent:"rgba(255,255,255,0.38)",fontFamily:"Montserrat,sans-serif",fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap",borderBottom:filter===c?`2px solid ${accent}`:"2px solid transparent",transition:"all .18s"}}>
+              <button
+                type="button"
+                key={c}
+                onClick={()=>setFilter(c)}
+                className={`filter-pill${filter===c ? " is-active" : ""}`}
+                style={filter===c ? { "--pill-color": accent } : undefined}
+              >
                 {c}
               </button>
             ))}
           </div>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search artists…"
-            style={{padding:"7px 13px",background:"#1e1e1e",border:"1px solid #333",color:"#fff",fontFamily:"Montserrat,sans-serif",fontSize:12,outline:"none",borderRadius:6,width:190}}/>
+          <input
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+            placeholder="Search artists…"
+            className="filter-search"
+          />
         </div>
       </div>
 
-      {/* GRID */}
-      <div style={{padding:"32px 40px",maxWidth:1500,margin:"0 auto"}}>
-        {artists.length===0&&!seeding?(
-          <div style={{textAlign:"center",color:"#444",padding:"80px 0",fontSize:13,lineHeight:2}}>
-            <div style={{fontSize:48,marginBottom:16}}>🎙</div>
-            <div style={{color:"rgba(255,255,255,0.3)",fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",fontSize:11}}>No artists yet</div>
-            <div style={{color:"rgba(255,255,255,0.2)",fontSize:12,marginTop:8}}>Use the "Seed 31 Artists" button above to populate from BrisVO</div>
-          </div>
-        ):(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:14}}>
-            {filtered.map(t=>(
-              <TalentCard key={t.id} talent={t} onClick={()=>setSelected(t)}/>
-            ))}
-          </div>
-        )}
-        {filtered.length===0&&artists.length>0&&(
-          <div style={{textAlign:"center",color:"#444",padding:"80px 0",fontSize:11,letterSpacing:"2px",textTransform:"uppercase"}}>No artists found.</div>
-        )}
-      </div>
+      <section id="artists" className="artist-grid-section anchor-target">
+        <div className="content-shell content-shell--wide">
+          {artists.length===0&&!seeding?(
+            <div className="empty-state">
+              <div className="empty-state__icon">🎙</div>
+              <div className="empty-state__title">No artists yet</div>
+              <div className="empty-state__text">Use the "Seed 31 Artists" button above to populate from BrisVO</div>
+            </div>
+          ):(
+            <div className="talent-grid">
+              {filtered.map(t=>(
+                <TalentCard key={t.id} talent={t} onClick={()=>setSelected(t)}/>
+              ))}
+            </div>
+          )}
+          {filtered.length===0&&artists.length>0&&(
+            <div className="empty-state empty-state--compact">No artists found.</div>
+          )}
+        </div>
+      </section>
 
-      {/* ABOUT */}
-      <div style={{background:"#111",borderTop:"1px solid #1e1e1e"}}>
-        <div style={{background:"linear-gradient(135deg,#1a0a1a,#111)",padding:"64px 40px 0",position:"relative",overflow:"hidden"}}>
+      <section id="about" className="about-section anchor-target">
+        <div className="about-section__hero">
           {["#FF3D57","#7C3AED"].map((c,i)=>(
-            <div key={i} style={{position:"absolute",width:400,height:400,borderRadius:"50%",background:c,opacity:0.05,filter:"blur(80px)",left:i===0?"-5%":"60%",top:i===0?"10%":"-20%",pointerEvents:"none"}}/>
+            <div
+              key={i}
+              className="about-section__glow"
+              style={{background:c,left:i===0?"-5%":"60%",top:i===0?"10%":"-20%"}}
+            />
           ))}
-          <div style={{position:"relative",maxWidth:900,margin:"0 auto",textAlign:"center"}}>
-            <div style={{fontSize:10,fontWeight:800,letterSpacing:"4px",textTransform:"uppercase",color:accent,marginBottom:18}}>About BrisVO</div>
-            <h2 style={{fontFamily:"Georgia,serif",fontSize:"clamp(32px,5vw,58px)",fontWeight:400,color:"#fff",lineHeight:1.1,marginBottom:24,fontStyle:"italic"}}>The voices in your head<br/>are close to hand</h2>
+          <div className="about-section__hero-inner content-shell">
+            <div className="section-eyebrow">About BrisVO</div>
+            <h2 className="about-section__title">The voices in your head<br/>are close to hand</h2>
           </div>
         </div>
-        <div style={{padding:"48px 40px 60px",maxWidth:1100,margin:"0 auto",display:"grid",gridTemplateColumns:"1fr 1fr",gap:48}}>
+        <div className="about-section__grid content-shell">
           <div>
-            <div style={{fontSize:10,fontWeight:800,letterSpacing:"3px",textTransform:"uppercase",color:accent,marginBottom:16}}>Who We Are</div>
-            <p style={{color:"rgba(255,255,255,0.7)",fontSize:15,lineHeight:1.9,marginBottom:18,fontFamily:"Georgia,serif"}}>BrisVO is not a company nor an agent, but a <strong style={{color:"#fff"}}>collective</strong> — a pool of reliable, accessible, independent voice-over talent of the highest calibre.</p>
-            <p style={{color:"rgba(255,255,255,0.55)",fontSize:14,lineHeight:1.85,marginBottom:18}}>The initiative was established in 1996 to highlight the best of Brisbane-based voice talent and become the go-to place to assist the people who hire us. We strive not only to foster excellence in our industry, but make finding, quoting and booking talent as simple as possible.</p>
-            <p style={{color:"rgba(255,255,255,0.55)",fontSize:14,lineHeight:1.85}}>As local, professional voice-over artists, we are very proud of what we do. Let us know how BrisVO can help you bring your ideas to life.</p>
+            <div className="section-label" style={{color: accent}}>Who We Are</div>
+            <p className="about-section__lede">BrisVO is not a company nor an agent, but a <strong style={{color:"#fff"}}>collective</strong> — a pool of reliable, accessible, independent voice-over talent of the highest calibre.</p>
+            <p className="about-section__copy">The initiative was established in 1996 to highlight the best of Brisbane-based voice talent and become the go-to place to assist the people who hire us. We strive not only to foster excellence in our industry, but make finding, quoting and booking talent as simple as possible.</p>
+            <p className="about-section__copy">As local, professional voice-over artists, we are very proud of what we do. Let us know how BrisVO can help you bring your ideas to life.</p>
           </div>
           <div>
-            <div style={{fontSize:10,fontWeight:800,letterSpacing:"3px",textTransform:"uppercase",color:accent,marginBottom:16}}>What We Offer</div>
-            <p style={{color:"rgba(255,255,255,0.55)",fontSize:14,lineHeight:1.85,marginBottom:24}}>All BrisVO talent can accept your brief, analyse your script, respond to direction and come up with the goods — without wasting valuable studio time, letting you get on with the job.</p>
-            <p style={{color:"rgba(255,255,255,0.7)",fontSize:15,lineHeight:1.9,fontFamily:"Georgia,serif",fontStyle:"italic",borderLeft:`3px solid ${accent}`,paddingLeft:20,marginBottom:24}}>"We'd love to speak for you, giving voice to your client's project in a professional manner that will leave both you &amp; your client delighted with the result."</p>
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {[["🎙","Find talent fast","Browse professional voices — filter by style, gender, accent"],["▶","Hear before you hire","Up to 6 demo reels per artist, stream instantly"],["✉","Book with ease","Direct enquiry form on every profile"]].map(([icon,title,desc])=>(
-                <div key={title} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"12px 16px",background:"rgba(255,255,255,0.04)",borderRadius:10,border:"1px solid rgba(255,255,255,0.06)"}}>
-                  <span style={{fontSize:18,flexShrink:0,marginTop:1}}>{icon}</span>
-                  <div><div style={{fontSize:12,fontWeight:700,color:"#fff",marginBottom:2}}>{title}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.4)",lineHeight:1.5}}>{desc}</div></div>
+            <div className="section-label" style={{color: accent}}>What We Offer</div>
+            <p className="about-section__copy">All BrisVO talent can accept your brief, analyse your script, respond to direction and come up with the goods — without wasting valuable studio time, letting you get on with the job.</p>
+            <p className="about-section__quote" style={{borderLeftColor: accent}}>"We'd love to speak for you, giving voice to your client's project in a professional manner that will leave both you &amp; your client delighted with the result."</p>
+            <div className="about-section__offers">
+              {OFFER_ITEMS.map(([icon,title,desc])=>(
+                <div key={title} className="about-section__offer">
+                  <span className="about-section__offer-icon">{icon}</span>
+                  <div>
+                    <div className="about-section__offer-title">{title}</div>
+                    <div className="about-section__offer-text">{desc}</div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
-        <div style={{background:"rgba(255,255,255,0.03)",borderTop:"1px solid rgba(255,255,255,0.06)",padding:"28px 40px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
-          <p style={{color:"rgba(255,255,255,0.5)",fontSize:13}}>Ready to be heard? Join Queensland's finest voice collective.</p>
-          <button onClick={()=>setView("register")} style={{padding:"12px 32px",background:accent,color:"#fff",border:"none",cursor:"pointer",fontFamily:"Montserrat,sans-serif",fontSize:10,fontWeight:800,letterSpacing:"2px",textTransform:"uppercase",borderRadius:8,boxShadow:`0 6px 20px ${accent}44`}}>Join as an Artist</button>
+        <div className="about-section__cta">
+          <div className="content-shell about-section__cta-inner">
+            <p className="about-section__cta-copy">Ready to be heard? Join Queensland's finest voice collective.</p>
+            <button
+              type="button"
+              onClick={()=>handleViewSelect("register")}
+              className="site-button site-button--primary"
+              style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
+            >
+              Join as an Artist
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
       <NewsletterSection/>
 
-      {/* FOOTER */}
-      <div style={{background:"#0d0d0d",padding:"28px 40px",borderTop:"1px solid #1a1a1a"}}>
-        <div style={{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
-          <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:"#fff",letterSpacing:2}}>Bris<span style={{color:accent}}>VO</span></div>
-          <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
-            {["Male Talent","Female Talent","Have You Heard?","About BrisVO","Studio Links","Rate Card","Disclaimer","Terms"].map(l=>(
-              <span key={l} style={{color:"rgba(255,255,255,0.25)",fontSize:9,letterSpacing:"1.5px",textTransform:"uppercase",cursor:"pointer",fontWeight:700}}
-                onMouseEnter={e=>e.target.style.color=accent} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.25)"}>{l}</span>
+      <footer id="footer" className="site-footer anchor-target">
+        <div className="site-footer__inner content-shell">
+          <div className="brand-mark brand-mark--small">Bris<span style={{color:accent}}>VO</span></div>
+          <div className="site-footer__links">
+            {FOOTER_LINKS.map(label=>(
+              <span key={label} className="footer-link">{label}</span>
             ))}
           </div>
-          <p style={{color:"rgba(255,255,255,0.18)",fontSize:11}}>©2025 BrisVO. All rights reserved.</p>
+          <p className="site-footer__copy">©2025 BrisVO. All rights reserved.</p>
         </div>
-      </div>
+      </footer>
 
       {selected&&<TalentModal talent={selected} onClose={()=>setSelected(null)}/>}
     </div>
