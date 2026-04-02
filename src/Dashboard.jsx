@@ -209,7 +209,7 @@ export default function Dashboard({
               <div className="flex h-16 items-center justify-between px-4 sm:px-0">
                 <div className="flex items-center gap-10">
                   <div className="shrink-0">
-                    <div className="text-lg font-semibold tracking-[-0.04em] text-white">
+                    <div className="brand-mark text-lg tracking-[0.12em] text-white">
                       Bris<span style={{ color: ACCENT }}>VO</span>
                     </div>
                   </div>
