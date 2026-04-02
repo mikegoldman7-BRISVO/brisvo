@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import "./App.css";
+import { supabase } from "./lib/supabase";
+import Dashboard from "./Dashboard.jsx";
 
 // ── SUPABASE CONFIG ────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -22,71 +24,6 @@ const sb = async (path, opts = {}) => {
   }
   const text = await res.text();
   return text ? JSON.parse(text) : [];
-};
-
-// ── SEED DATA — used to populate Supabase if empty ────────────
-const PROXY = "https://corsproxy.io/?";
-const BASE = "https://www.brisvo.com/wp-content/uploads";
-const p = url => `${PROXY}${encodeURIComponent(url)}`;
-
-const PALETTE = [
-  "#FF3D57","#FF6B1A","#FFB400","#00C48C","#00B4D8",
-  "#7C3AED","#F72585","#06D6A0","#FF4D6D","#4361EE",
-  "#FB5607","#3A86FF","#8338EC","#FF006E","#00B4D8",
-  "#06D6A0","#FF3D57","#FFB400","#7C3AED","#F72585",
-  "#4CC9F0","#FF6B1A","#00C48C","#3A86FF","#FF4D6D",
-  "#8338EC","#FB5607","#FF006E","#4361EE","#06D6A0","#FF3D57",
-];
-
-const SEED_ARTISTS = [
-  { name:"Thomas Murray",   slug:"thomas-murray",   gender:"Male",   brand_color:"#FF3D57", categories:["Male","Corporate","Commercial"], photo_url:p(`${BASE}/2021/08/Tom-Murray-1-B_W.jpg`), bio:"Award-winning sound producer and voiceover artist with over 15 years industry experience. Tom has worked for The Australian Radio Network, 4BC, and Nova Entertainment. Co-hosted the Sunday morning breakfast show on Nova 106.9.", sort_order:1 },
-  { name:"Jackie Bowker",   slug:"jackie-bowker",   gender:"Female", brand_color:"#FF6B1A", categories:["Female","Commercial","Corporate","Character"], photo_url:p(`${BASE}/2025/04/Jackie-Bowker%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"Think of her voice as your Swiss Army knife — versatile enough to tackle any style. Clients include Rio Tinto, Bonds Australia, Volkswagen, ANZ Bank, Cancer Council, Medibank, Spotify and The Australian Open.", sort_order:2 },
-  { name:"Fotene Maroulis", slug:"fotene-maroulis", gender:"Female", brand_color:"#FFB400", categories:["Female","Corporate","E-Learning","Commercial"], photo_url:p(`${BASE}/2022/07/Fontene-Maroulis-BrisVO-Voice-Artist-768x1143.jpg`), bio:"Originally from New Zealand, Fotene's love of music and performance contributes to the warmth in her natural speaking tone. Campaigns include Michael Hill, The Iconic, Bisolvon, Otrivin and Sun Super.", sort_order:3 },
-  { name:"Liz Buchanan",    slug:"liz-buchanan",    gender:"Female", brand_color:"#00C48C", categories:["Female","Commercial","Audiobook","E-Learning"], photo_url:p(`${BASE}/2021/08/Liz-Buchannan-BW.jpg`), bio:"Theatre and TV actor and trained singer with over a decade of VO work. Clients include Lite n' Easy, Suncorp, Goodstart Early Learning, NRMA and Triple P Online. Also the voice of an alien telepath in 'Space Chickens in Space'.", sort_order:4 },
-  { name:"Hugh Parker",     slug:"hugh-parker",     gender:"Male",   brand_color:"#00B4D8", categories:["Male","Character","Commercial","Corporate"], photo_url:p(`${BASE}/2021/08/Hugh-Parker_.jpg`), bio:"Actor, writer and teacher with an acute ear for the most engaging delivery. London recording studios were his second home. He excels at straight, comedic, tone-filled and humble voice work.", sort_order:5 },
-  { name:"Robert Coleby",   slug:"robert-coleby",   gender:"Male",   brand_color:"#7C3AED", categories:["Male","Corporate","Commercial","Character"], photo_url:p(`${BASE}/2021/08/Robert-Colby-B_w.jpg`), bio:"London-trained actor with over 83 film and TV productions and 45 plays. Voice of Darwin in QTC's 'The Wider Earth' and a series regular in 'The Queen of Oz' for the BBC.", sort_order:6 },
-  { name:"Chris Crickmay",  slug:"chris-crickmay",  gender:"Male",   brand_color:"#F72585", categories:["Male","Character","Commercial","E-Learning","Corporate"], photo_url:p(`${BASE}/2022/07/Chris-Crickmay-BrisVO-B_W-768x1143.jpg`), bio:"Award-winning Australian voice talent. Clients include ANZ, Commonwealth Bank, Subaru, Toyota, BP, Dan Murphy's, KFC, Mazda, BMW, Triple J and the Gold Coast Suns.", sort_order:7 },
-  { name:"Walter Williams", slug:"walter-williams", gender:"Male",   brand_color:"#06D6A0", categories:["Male","Corporate","Commercial","Audiobook","Character","Retail"], photo_url:p(`${BASE}/2023/10/Walter-%E2%80%A2-Brisvo-WebsiteHero-Head-shots-B_W-768x1143.jpg`), bio:"'The Voice' people rely on. Walt has narrated nine seasons of 'Industry Leaders' on Foxtel. Clients include BHP, Cadbury, Jack Daniels, Jaguar, LG, McDonald's McCafe, Mercedes Benz, Rio Tinto, Westpac and Yamaha.", sort_order:8 },
-  { name:"Andrea Moor",     slug:"andrea-moor",     gender:"Female", brand_color:"#FF4D6D", categories:["Female","Corporate","Commercial","Character"], photo_url:p(`${BASE}/2021/08/Andrea-Moor-Brisvo-Website-Hero-Head-shots-768x1143.jpg`), bio:"Known for her sophisticated voice of reason, perfect for luxury real estate and financial products. National profile as a stage and screen actor with a warm, sensual honeyed voice.", sort_order:9 },
-  { name:"Nelle Lee",       slug:"nelle-lee",       gender:"Female", brand_color:"#4361EE", categories:["Female","Commercial","Character","Jingle"], photo_url:p(`${BASE}/2021/08/Nelle-Lee-%E2%80%A2-Brisvo-Website-Hero-Head-shots-768x1143.jpg`), bio:"Energetic, youthful vocal quality with extensive theatre and film history. Natural comic timing and a bright vibrant feel. Clients include Telstra, Griffith, Subway and Oz Lotto.", sort_order:10 },
-  { name:"Brie Jurss",      slug:"brie-jurss",      gender:"Female", brand_color:"#FB5607", categories:["Female","Commercial","E-Learning","Corporate","Retail"], photo_url:p(`${BASE}/2022/09/Brie-Jurss-Brisvo-Website-Hero-Head-shots-1-768x1143.jpg`), bio:"Bright, natural tone bursting with energy and kindness. Relatable yet trustworthy. Clients include Flight Centre, Suncorp Group, The Lott and University of Sunshine Coast.", sort_order:11 },
-  { name:"Michael Goldman", slug:"michael-goldman", gender:"Male",   brand_color:"#3A86FF", categories:["Male","Commercial","Corporate","Character"], photo_url:p(`${BASE}/2021/08/Mike-Goldman-%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"One of the founders of BrisVO. Voice artist since the 1990s, learning the ropes from his father Grant Goldman. Now used by some of the biggest brands in the world for his instinctual ability to follow direction and interpret a script.", sort_order:12 },
-  { name:"Thomas Larkin",   slug:"thomas-larkin",   gender:"Male",   brand_color:"#8338EC", categories:["Male","Audiobook","Character","Corporate","Commercial"], photo_url:p(`${BASE}/2021/08/Thomas-Larkin-B_W.jpg`), bio:"VCA graduate. Screen credits include Baz Luhrmann's Elvis (2022) and animated feature Combat Wombat opposite Deborah Mailman. Recipient of the Brisbane City Council Lord Mayor's Young and Emerging Artists Fellowship.", sort_order:13 },
-  { name:"Megan Shapcott",  slug:"megan-shapcott",  gender:"Female", brand_color:"#FF006E", categories:["Female","E-Learning","Corporate","Commercial"], photo_url:p(`${BASE}/2021/08/Megan-Shapcott-1.jpg`), bio:"Clear, articulate and approachable — a go-to for e-learning, corporate narration and commercial work throughout Australia.", sort_order:14 },
-  { name:"Leon Murray",     slug:"leon-murray",     gender:"Male",   brand_color:"#00B4D8", categories:["Male","Corporate","Commercial","Retail","IVR & On Hold"], photo_url:p(`${BASE}/2021/08/Leon-Murray-BrisVO-Artist.jpg`), bio:"'Voice of Big Brother' on Network TEN (2008) and Nine Network (2012–2014). Clients include BMW, McDonald's, Suncorp, Hewlett Packard, Crown, Watpac and Expedia.", sort_order:15 },
-  { name:"Ashlee Lollback", slug:"ashlee-lollback", gender:"Female", brand_color:"#06D6A0", categories:["Female","Commercial","Retail","Corporate"], photo_url:p(`${BASE}/2025/04/Ashlee-Lollback-2-%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"Fresh, contemporary sound for retail and commercial productions. Natural warmth and approachable energy that clients love.", sort_order:16 },
-  { name:"Digby Gillings",  slug:"digby-gillings",  gender:"Male",   brand_color:"#FF3D57", categories:["Male","Commercial","Character","Corporate"], photo_url:p(`${BASE}/2021/08/Digby-Gilling.jpg`), bio:"Old head on young shoulders — a genuine radio veteran with a natural gift for storytelling.", sort_order:17 },
-  { name:"Paul Davies",     slug:"paul-davies",     gender:"Male",   brand_color:"#FFB400", categories:["Male","Corporate","IVR & On Hold","Commercial"], photo_url:p(`${BASE}/2022/11/Paul-Davies%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"Polished, professional reads every time. Warm authority trusted for corporate messaging, IVR and radio campaigns throughout Australia.", sort_order:18 },
-  { name:"Ross Newth",      slug:"ross-newth",      gender:"Male",   brand_color:"#7C3AED", categories:["Male","Commercial","Corporate"], photo_url:p(`${BASE}/2025/05/Ross-Newth-%E2%80%A2-Brisvo-Website-Hero-Head-shots-768x1143.jpg`), bio:"Fresh, modern sound for commercial and corporate productions. Versatile, reliable and always on brief.", sort_order:19 },
-  { name:"Steven Grives",   slug:"steven-grives",   gender:"Male",   brand_color:"#F72585", categories:["Male","Corporate","Audiobook","Commercial"], photo_url:p(`${BASE}/2021/08/Steven-Grives-1-B_W.jpg`), bio:"Accomplished actor and voice artist whose screen and stage experience informs every recording.", sort_order:20 },
-  { name:"LJ Stockwell",    slug:"lj-stockwell",    gender:"Female", brand_color:"#4CC9F0", categories:["Female","Commercial","E-Learning","Corporate"], photo_url:p(`${BASE}/2023/06/LJ-%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"Friendly, approachable tone that has made her a favourite for e-learning and consumer-facing campaigns.", sort_order:21 },
-  { name:"Emily Dickson",   slug:"emily-dickson",   gender:"Female", brand_color:"#FF6B1A", categories:["Female","Commercial","Retail","E-Learning"], photo_url:p(`${BASE}/2022/07/Emily-Dickson-BrisVO-Voice-Artist-B_W-768x1143.jpg`), bio:"Bright, engaging voice perfect for retail, commercial and lifestyle productions.", sort_order:22 },
-  { name:"Jennifer Mary",   slug:"jennifer-mary",   gender:"Female", brand_color:"#00C48C", categories:["Female","Corporate","IVR & On Hold","Commercial"], photo_url:p(`${BASE}/2021/08/Jennifer-Mary-1-B_W.jpg`), bio:"Warm professionalism shining through in every corporate and IVR recording.", sort_order:23 },
-  { name:"Helen Cassidy",   slug:"helen-cassidy",   gender:"Female", brand_color:"#3A86FF", categories:["Female","Audiobook","Corporate","Commercial"], photo_url:p(`${BASE}/2025/04/Helen-Cassidy-%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"Elegance and depth in audiobook narration and premium corporate productions.", sort_order:24 },
-  { name:"Todd MacDonald",  slug:"todd-macdonald",  gender:"Male",   brand_color:"#8338EC", categories:["Male","Commercial","Character","Corporate"], photo_url:p(`${BASE}/2023/11/Todd-Macdonald%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"Distinctive voice with natural authority equally effective for comedy and drama.", sort_order:25 },
-  { name:"Todd Levi",       slug:"todd-levi",       gender:"Male",   brand_color:"#FB5607", categories:["Male","Corporate","Commercial","IVR & On Hold"], photo_url:p(`${BASE}/2023/01/TODD-LEVI-1%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"Confidence and clarity in every read. Equally comfortable in the boardroom or the booth.", sort_order:26 },
-  { name:"Marcus Oborn",    slug:"marcus-oborn",    gender:"Male",   brand_color:"#FF006E", categories:["Male","Commercial","Jingle","Corporate"], photo_url:p(`${BASE}/2025/04/Marcus-Oborn-%E2%80%A2-Brisvo-Website-Hero-Head-shots-768x1143.jpg`), bio:"Warm, energetic delivery that makes him a standout for commercial and jingle work.", sort_order:27 },
-  { name:"Teresa Lim",      slug:"teresa-lim",      gender:"Female", brand_color:"#4361EE", categories:["Female","Corporate","E-Learning","Commercial"], photo_url:p(`${BASE}/2021/08/Teresa-Lim-1-B_W.jpg`), bio:"Clear, composed delivery perfect for multilingual corporate and e-learning content.", sort_order:28 },
-  { name:"Damien Garvey",   slug:"damien-garvey",   gender:"Male",   brand_color:"#06D6A0", categories:["Male","Character","Audiobook","Corporate"], photo_url:p(`${BASE}/2022/03/Damien-Garvey-BrisVO-Voice-Actor-B_W-768x1143.jpg`), bio:"Respected actor and voice artist spanning drama, comedy and documentary with equal distinction.", sort_order:29 },
-  { name:"Mikee Joaquin",   slug:"mikee-joaquin",   gender:"Male",   brand_color:"#FF3D57", categories:["Male","Character","E-Learning","Commercial"], photo_url:p(`${BASE}/2021/08/Mikee-Joaquin-%E2%80%A2-Brisvo-WebsiteHero-Head-shots-768x1143.jpg`), bio:"Loads of creative flair. His unique, quirky style landed him work for Crayola, Colgate-Palmolive — and the role of Dipsy, the green Teletubby.", sort_order:30 },
-  { name:"Tony Bellette",   slug:"tony-bellette",   gender:"Male",   brand_color:"#FFB400", categories:["Male","Corporate","Commercial","IVR & On Hold"], photo_url:p(`${BASE}/2021/08/Tony-Billette-1-B_W.jpg`), bio:"Commanding voice trusted by major brands for decades of corporate and commercial work.", sort_order:31 },
-];
-
-const SEED_DEMOS = {
-  "thomas-murray":   [{name:"Current Demo Reel 2025",file_url:`${BASE}/2025/11/Thomas-Murray-Prod-Reel-2025.mp3`,sort_order:0},{name:"VO Reel 2023",file_url:`${BASE}/2023/05/TOM-MURRAY-2023-VO-REEL.mp3`,sort_order:1}],
-  "jackie-bowker":   [{name:"Compilation Reel",file_url:`${BASE}/2025/04/Jackie-Bowker-VO-Demo-Compilation-V2-with-music.mp3`,sort_order:0},{name:"Commercial Reel",file_url:`${BASE}/2025/04/Jackie-Bowker-VO-Demo-Commercial-music.mp3`,sort_order:1},{name:"Corporate Reel",file_url:`${BASE}/2025/04/Jackie-Bowker-CorporateReel.Music_.NoSlate.mp3`,sort_order:2}],
-  "fotene-maroulis": [{name:"Voice Reel",file_url:`${BASE}/2022/07/01-FoteneMaroulis_VO_Demo_2min.mp3`,sort_order:0}],
-  "liz-buchanan":    [{name:"Voice Over Demos",file_url:`${BASE}/2021/08/Liz-Buchanan-KAMvoices-1.mp3`,sort_order:0},{name:"Narration & E-Learning",file_url:`${BASE}/2021/08/Liz-Buchanan-KAMvoices-Narration-1.mp3`,sort_order:1},{name:"US Accent",file_url:`${BASE}/2021/08/Amway-edit-fade-up-1.wav`,sort_order:2}],
-  "hugh-parker":     [{name:"Compilation",file_url:`${BASE}/2021/08/HughCompilationV3.mp3`,sort_order:0}],
-  "robert-coleby":   [{name:"Voice Demo",file_url:`${BASE}/2021/08/Robert-Coleby-Voice-Demo.mp3`,sort_order:0}],
-  "chris-crickmay":  [{name:"Sample Montage",file_url:`${BASE}/2024/02/Chris-Crickmay-JAN-sample-montage.mp3`,sort_order:0},{name:"TV & Radio Reel",file_url:`${BASE}/2022/07/CRICKERS-TV-RADIO-READS.mp3`,sort_order:1},{name:"Characters & Accents",file_url:`${BASE}/2022/07/Chris-Crickmay-CHARACTERS-ACCENTS-AND-ANIMATION_02.mp3`,sort_order:2},{name:"E-Learning & Corporate",file_url:`${BASE}/2022/07/Chris-Crickmay-ELEARNING-AND-CORPORATE-NARRATION.mp3`,sort_order:3},{name:"Intimate Reads",file_url:`${BASE}/2022/07/Chris-Crickmay-INTIMATE-READS.mp3`,sort_order:4}],
-  "walter-williams": [{name:"Commercial Demo",file_url:`${BASE}/2021/08/Walts-Commercial-Demo-2020.mp3`,sort_order:0},{name:"Natural Demo",file_url:`${BASE}/2021/08/Walts-Natural-Demo-2020.mp3`,sort_order:1},{name:"Corporate Demo",file_url:`${BASE}/2021/08/Walts-Corporate-Demo.mp3`,sort_order:2},{name:"Retail Demo",file_url:`${BASE}/2021/08/Walts-Retail-Demo.mp3`,sort_order:3},{name:"Animation Demo",file_url:`${BASE}/2021/08/Walts-Animation-Demo-2019.mp3`,sort_order:4},{name:"Narration Demo",file_url:`${BASE}/2021/08/Walts-Narration-Demo-2020.mp3`,sort_order:5}],
-  "andrea-moor":     [{name:"Voice Demo",file_url:`${BASE}/2023/11/Andrea-Moor-Voice-Demo-17112023-10.58-am.mp3`,sort_order:0}],
-  "nelle-lee":       [{name:"Voice Over Demo",file_url:`${BASE}/2021/08/NelleLee-A1Compilation.mp3`,sort_order:0}],
-  "brie-jurss":      [{name:"Demo Reel",file_url:`${BASE}/2021/08/Demo-Reel-Brie-Jurss-1.mp3`,sort_order:0}],
-  "michael-goldman": [{name:"VO Demo 2021",file_url:`${BASE}/2021/10/Mike-Goldmans-Demo-2021.mp3`,sort_order:0},{name:"TV Promos 2023",file_url:`${BASE}/2023/03/Mike-Goldman-TV-Promos-2023.mp3`,sort_order:1},{name:"Character Reel",file_url:`${BASE}/2021/08/2020Character.mp3`,sort_order:2},{name:"American Demo",file_url:`${BASE}/2021/08/American-VO-Demo.mp3`,sort_order:3},{name:"English Demo",file_url:`${BASE}/2022/09/EnglishGold.mp3`,sort_order:4},{name:"Video Game Demo",file_url:`${BASE}/2022/09/videogamedemo.mp3`,sort_order:5}],
-  "thomas-larkin":   [{name:"Compilation Reel 2023",file_url:`${BASE}/2023/05/230505_LARKIN_THOMAS_COMPILATION-DEMO_2023_Master-REV-2.mp3`,sort_order:0},{name:"Documentary Demo",file_url:`${BASE}/2021/08/LARKIN-THOMAS-Documentary-Demo-MASTER2.mp3`,sort_order:1},{name:"Animation Demo 2023",file_url:`${BASE}/2023/05/Thomas-Larkin-Animation-Reel-2023_Master_3.0.mp3`,sort_order:2},{name:"Gaming Demo",file_url:`${BASE}/2021/08/LARKIN-THOMAS-GAMING-DEMO.mp3`,sort_order:3},{name:"Audio Book Demo",file_url:`${BASE}/2023/05/230505_Thomas-Larkin-Audiobook-Reel-2023_Master.mp3`,sort_order:4},{name:"Promo Reel 2023",file_url:`${BASE}/2023/05/230505_Thomas-Larkin-Promo-Reel-2023_Master.mp3`,sort_order:5}],
-  "leon-murray":     [{name:"Compile Demo 2024",file_url:`${BASE}/2024/10/Leon-2024-Compile-Demo.mp3`,sort_order:0},{name:"Corporate & On Hold 2024",file_url:`${BASE}/2024/10/Leon-2024-Corporate-Demo.mp3`,sort_order:1},{name:"Retail & Promo",file_url:`${BASE}/2021/08/Leon-Murray-RETAIL-Demo-2018.mp3`,sort_order:2},{name:"Government",file_url:`${BASE}/2021/08/Leon-Murray-GOVT-Demo-2018.mp3`,sort_order:3},{name:"New Zealand Demo",file_url:`${BASE}/2021/12/Leon-Murray-BRISVO-NZ-MVO-REEL-MP3.mp3`,sort_order:4},{name:"Brand Positioning",file_url:`${BASE}/2022/09/Leon-Murray-Brand-Positioning-Demo-BRISVO.mp3`,sort_order:5}],
 };
 
 const CATS = ["All","Corporate","Commercial","Character","Audiobook","E-Learning","Female","Male","IVR & On Hold","Jingle","Retail"];
@@ -227,19 +164,21 @@ function AuthScene({ eyebrow, title, copy, panelTitle, panelCopy, onBack, childr
   );
 }
 
-function ArtistLoginView({ onBack, onSwitch }) {
+function ArtistLoginView({ onBack, onSwitch, onLogin, loginPending }) {
   const [form, setForm] = useState({ email:"", password:"" });
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("");
+  const [statusTone, setStatusTone] = useState("success");
 
   const updateField = key => e => {
     const value = e.target.value;
     setForm(current => ({ ...current, [key]: value }));
     setErrors(current => (current[key] ? { ...current, [key]: "" } : current));
     setStatus("");
+    setStatusTone("success");
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
     const nextErrors = {};
     const email = form.email.trim();
@@ -253,8 +192,15 @@ function ArtistLoginView({ onBack, onSwitch }) {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    console.log("Mock artist login submitted", { email });
-    setStatus("This sign-in is a frontend preview only. Your details were not sent anywhere.");
+    setStatusTone("success");
+    setStatus("Signing you in…");
+
+    const { error } = await onLogin(email, form.password);
+
+    if (error) {
+      setStatusTone("error");
+      setStatus(error.message);
+    }
   };
 
   return (
@@ -301,16 +247,23 @@ function ArtistLoginView({ onBack, onSwitch }) {
 
         <button
           type="submit"
+          disabled={loginPending}
           className="site-button site-button--primary site-button--full"
-          style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
+          style={{ "--button-color": accent, "--button-shadow": `${accent}44`, opacity: loginPending ? 0.7 : 1 }}
         >
-          Sign In
+          {loginPending ? "Signing In…" : "Sign In"}
         </button>
       </form>
 
       <div aria-live="polite" className="mt-5 min-h-6">
         {status&&(
-          <p className="rounded-2xl border border-[#00c48c]/30 bg-[#00c48c]/10 px-4 py-3 text-sm leading-6 text-[#b6ffe7]">
+          <p
+            className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${
+              statusTone === "error"
+                ? "border-[#ff7a8b]/40 bg-[#2a1117] text-[#ffb1bc]"
+                : "border-[#00c48c]/30 bg-[#00c48c]/10 text-[#b6ffe7]"
+            }`}
+          >
             {status}
           </p>
         )}
@@ -361,7 +314,6 @@ function ArtistRegisterView({ onBack, onSwitch }) {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    console.log("Mock artist registration submitted", { fullName, email });
     setStatus("This sign-up is a frontend preview only. Your details were not sent anywhere.");
   };
 
@@ -735,13 +687,57 @@ function NewsletterSection() {
 export default function App() {
   const [artists, setArtists] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
-  const [seedMsg, setSeedMsg] = useState("");
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [view, setView] = useState("home");
+  const [session, setSession] = useState(null);
+  const [artistProfile, setArtistProfile] = useState(null);
+  const [artistLoading, setArtistLoading] = useState(false);
+  const [artistError, setArtistError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Session setup: read the initial Supabase session on mount.
+  useEffect(() => {
+    let active = true;
+
+    const syncSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error("Session check error:", error.message);
+        return;
+      }
+
+      if (!active) return;
+      setSession(data.session);
+
+      if (!data.session) {
+        setView("home");
+      }
+    };
+
+    syncSession();
+
+    // Auth listener: keep session state in sync with login/logout changes.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
+
+      setSession(nextSession);
+
+      if (!nextSession) {
+        setView("home");
+        setSelected(null);
+        setMenuOpen(false);
+      }
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   const fetchArtistsData = async () => {
     const data = await sb("artists?select=*,demos(*)&order=sort_order.asc&is_published=eq.true");
@@ -749,95 +745,44 @@ export default function App() {
     return data;
   };
 
-  const loadArtists = async () => {
+  const handleLogin = async (email, password) => {
+    setAuthLoading(true);
+
     try {
-      const data = await fetchArtistsData();
-      setArtists(data);
-    } catch(e) {
-      console.error("Failed to load artists:", e);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error("Login error:", error.message);
+        return { data, error };
+      }
+
+      setSession(data.session);
+      setView("home");
+      return { data, error: null };
+    } finally {
+      setAuthLoading(false);
     }
-    setLoading(false);
   };
 
-  // Seed database with all 31 artists
-  const seedDatabase = async () => {
-    setSeeding(true); setSeedMsg("Testing Supabase connection…");
-    try {
-      // Step 1: Test connection
-      setSeedMsg("Step 1: Testing connection to Supabase…");
-      const testRes = await fetch(`${SUPABASE_URL}/rest/v1/artists?limit=1`, {
-        headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
-        }
-      });
-      setSeedMsg(`Step 1 result: HTTP ${testRes.status} ${testRes.statusText}`);
-      if (!testRes.ok) {
-        const errText = await testRes.text();
-        setSeedMsg(`❌ Connection failed: ${testRes.status} — ${errText}`);
-        setSeeding(false);
-        return;
-      }
+  // Logout handler: sign out and return the app to the landing page state.
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
 
-      // Step 2: Try inserting first artist only
-      setSeedMsg("Step 2: Inserting Thomas Murray as test…");
-      const firstArtist = SEED_ARTISTS[0];
-      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/artists`, {
-        method: "POST",
-        headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
-          "Content-Type": "application/json",
-          "Prefer": "return=representation",
-        },
-        body: JSON.stringify({...firstArtist, is_published: true}),
-      });
-      const insertText = await insertRes.text();
-      setSeedMsg(`Step 2 result: HTTP ${insertRes.status} — ${insertText.slice(0,200)}`);
-
-      if (!insertRes.ok) {
-        setSeeding(false);
-        return;
-      }
-
-      // Step 3: Full seed
-      setSeedMsg("Step 2 worked! Running full seed…");
-      const [inserted] = JSON.parse(insertText);
-      const demos = SEED_DEMOS[firstArtist.slug] || [];
-      for (const d of demos) {
-        await fetch(`${SUPABASE_URL}/rest/v1/demos`, {
-          method: "POST",
-          headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}`, "Content-Type": "application/json", "Prefer": "return=minimal" },
-          body: JSON.stringify({...d, artist_id: inserted.id}),
-        });
-      }
-
-      for (let i = 1; i < SEED_ARTISTS.length; i++) {
-        const a = SEED_ARTISTS[i];
-        setSeedMsg(`Adding ${a.name} (${i+1}/${SEED_ARTISTS.length})…`);
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/artists`, {
-          method: "POST",
-          headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}`, "Content-Type": "application/json", "Prefer": "return=representation" },
-          body: JSON.stringify({...a, is_published: true}),
-        });
-        if (res.ok) {
-          const [art] = await res.json();
-          const artistDemos = SEED_DEMOS[a.slug] || [];
-          for (const d of artistDemos) {
-            await fetch(`${SUPABASE_URL}/rest/v1/demos`, {
-              method: "POST",
-              headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}`, "Content-Type": "application/json", "Prefer": "return=minimal" },
-              body: JSON.stringify({...d, artist_id: art.id}),
-            });
-          }
-        }
-      }
-      setSeedMsg("✅ All 31 artists loaded into Supabase!");
-      await loadArtists();
-    } catch(e) {
-      setSeedMsg(`❌ Exception: ${e.message} — ${e.stack?.slice(0,200)}`);
+    if (error) {
+      console.error("Logout error:", error.message);
+      return;
     }
-    setSeeding(false);
+
+    setSession(null);
+    setArtistProfile(null);
+    setArtistError("");
+    setArtistLoading(false);
+    setView("home");
+    setSelected(null);
+    setMenuOpen(false);
   };
 
   useEffect(() => {
@@ -860,6 +805,53 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+  // Artist fetch: load the profile row that belongs to the logged-in artist.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadArtistProfile = async () => {
+      if (!session?.user?.id) {
+        setArtistProfile(null);
+        setArtistError("");
+        setArtistLoading(false);
+        return;
+      }
+
+      setArtistLoading(true);
+      setArtistError("");
+
+      const { data, error } = await supabase
+        .from("artists")
+        .select("*")
+        .eq("owner_id", session.user.id)
+        .single();
+
+      if (cancelled) return;
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          setArtistProfile(null);
+          setArtistError("");
+        } else {
+          console.error("Artist profile fetch error:", error.message);
+          setArtistProfile(null);
+          setArtistError("We couldn't load your artist profile right now.");
+        }
+
+        setArtistLoading(false);
+        return;
+      }
+
+      setArtistProfile(data);
+      setArtistLoading(false);
+    };
+
+    loadArtistProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
   useEffect(() => {
     document.body.classList.toggle("body-lock", view==="home" && (menuOpen || Boolean(selected)));
     return () => document.body.classList.remove("body-lock");
@@ -905,6 +897,21 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Dashboard conditional rendering: authenticated users go straight to the dashboard.
+  if (session) {
+    return (
+      <Dashboard
+        session={session}
+        user={session?.user ?? null}
+        artistProfile={artistProfile}
+        artistLoading={artistLoading}
+        artistError={artistError}
+        onArtistProfileChange={setArtistProfile}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   if (loading && view==="home") return (
     <div className="loading-screen">
       <div className="brand-mark brand-mark--large">Bris<span style={{color:accent}}>VO</span></div>
@@ -918,6 +925,8 @@ export default function App() {
       <ArtistLoginView
         onBack={()=>handleViewSelect("home")}
         onSwitch={()=>handleViewSelect("register")}
+        onLogin={handleLogin}
+        loginPending={authLoading}
       />
     );
   }
@@ -1040,29 +1049,6 @@ export default function App() {
         </div>
       </section>
 
-      {artists.length===0&&!seeding&&(
-        <div className="status-banner status-banner--warning">
-          <div className="status-banner__content">
-            <div className="status-banner__title status-banner__title--warning">⚡ Database is empty</div>
-            <div className="status-banner__text">Click to seed all 31 BrisVO artists into Supabase</div>
-          </div>
-          <button type="button" onClick={seedDatabase} className="site-button site-button--gold">
-            Seed 31 Artists →
-          </button>
-        </div>
-      )}
-      {seeding&&(
-        <div className="status-banner status-banner--success">
-          <div className="status-banner__spinner"/>
-          <div className="status-banner__title status-banner__title--success">{seedMsg}</div>
-        </div>
-      )}
-      {!seeding&&seedMsg&&artists.length>0&&(
-        <div className="status-banner status-banner--success">
-          <div className="status-banner__title status-banner__title--success">{seedMsg}</div>
-        </div>
-      )}
-
       <div className="filter-bar">
         <div className="filter-bar__inner">
           <div className="filter-bar__tabs">
@@ -1089,11 +1075,11 @@ export default function App() {
 
       <section id="artists" className="artist-grid-section anchor-target">
         <div className="content-shell content-shell--wide">
-          {artists.length===0&&!seeding?(
+          {artists.length===0?(
             <div className="empty-state">
               <div className="empty-state__icon">🎙</div>
               <div className="empty-state__title">No artists yet</div>
-              <div className="empty-state__text">Use the "Seed 31 Artists" button above to populate from BrisVO</div>
+              <div className="empty-state__text">No published artists are available right now.</div>
             </div>
           ):(
             <div className="talent-grid">
