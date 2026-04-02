@@ -104,6 +104,8 @@ const OFFER_ITEMS = [
   ["▶","Hear before you hire","Up to 6 demo reels per artist, stream instantly"],
   ["✉","Book with ease","Direct enquiry form on every profile"],
 ];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 // ── HELPERS ────────────────────────────────────────────────────
 function Avatar({ name, colour, size=180 }) {
@@ -113,6 +115,338 @@ function Avatar({ name, colour, size=180 }) {
       <div style={{fontSize:size/3,fontWeight:900,color:"rgba(255,255,255,0.9)",fontFamily:"Georgia,serif",lineHeight:1}}>{initials}</div>
       <div style={{fontSize:Math.max(9,size/14),fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:2,textTransform:"uppercase",fontFamily:"Montserrat,sans-serif"}}>{name.split(" ")[0]}</div>
     </div>
+  );
+}
+
+function AuthField({ id, label, type="text", value, onChange, error, autoComplete, placeholder }) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-[11px] font-semibold uppercase tracking-[0.28em] text-white/72">
+        {label}
+      </label>
+      <input
+        id={id}
+        name={id}
+        type={type}
+        value={value}
+        onChange={onChange}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={`block w-full rounded-2xl border px-4 py-3 text-sm text-white transition placeholder:text-white/32 focus:outline-none focus:ring-4 ${
+          error
+            ? "border-[#ff7a8b] bg-[#2a1117] focus:border-[#ff7a8b] focus:ring-[#ff3d57]/15"
+            : "border-white/10 bg-black/28 focus:border-[#ff3d57]/80 focus:ring-[#ff3d57]/12"
+        }`}
+      />
+      {error&&(
+        <p id={`${id}-error`} className="text-sm text-[#ff9daa]">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AuthScene({ eyebrow, title, copy, panelTitle, panelCopy, onBack, children }) {
+  const authHighlights = [
+    ["Independent talent", "Local voices, direct booking, no generic portal flow."],
+    ["Studio ready", "A BrisVO sign-in is built for working artists and working sessions."],
+    ["Collective access", "Built for the BrisVO collective and the artists who keep sessions moving."],
+  ];
+
+  return (
+    <main className="relative isolate min-h-screen overflow-hidden bg-[#050505] text-white">
+      {[
+        { background: "#FF3D57", left: "8%", top: "-8%" },
+        { background: "#7C3AED", left: "72%", top: "8%" },
+        { background: "#00C48C", left: "18%", top: "74%" },
+      ].map((glow, index)=>(
+        <div
+          key={index}
+          className="pointer-events-none absolute h-72 w-72 rounded-full blur-3xl"
+          style={{ ...glow, opacity: 0.22 }}
+        />
+      ))}
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl items-center px-6 py-10 sm:px-8 lg:px-12">
+        <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)] lg:items-center">
+          <section className="max-w-2xl">
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+              <div className="brand-mark brand-mark--large">
+                Bris<span style={{color:accent}}>VO</span>
+              </div>
+              <button
+                type="button"
+                onClick={onBack}
+                className="site-button site-button--ghost site-button--compact"
+              >
+                Back to Home
+              </button>
+            </div>
+            <div className="mb-8">
+              <div className="section-eyebrow">{eyebrow}</div>
+              <h1 className="max-w-xl text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
+                {title}
+              </h1>
+              <p className="mt-5 max-w-lg text-sm leading-7 text-white/68 sm:text-base">
+                {copy}
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {authHighlights.map(([heading,text])=>(
+                <div key={heading} className="rounded-[24px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)] backdrop-blur-sm">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#ff93a4]">
+                    {heading}
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-white/62">{text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="relative">
+            <div className="absolute inset-0 rounded-[30px] bg-[radial-gradient(circle_at_top,_rgba(255,61,87,0.25),transparent_55%)] blur-2xl"/>
+            <div className="relative overflow-hidden rounded-[30px] border border-white/12 bg-white/[0.06] p-6 shadow-[0_28px_100px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-8">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"/>
+              <div className="absolute -right-16 top-0 h-40 w-40 rounded-full bg-[#FF3D57]/18 blur-3xl"/>
+              <div className="relative">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[#ff95a5]">
+                  {panelTitle}
+                </div>
+                <p className="mt-4 max-w-md text-sm leading-6 text-white/66">
+                  {panelCopy}
+                </p>
+                <div className="mt-8">{children}</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function ArtistLoginView({ onBack, onSwitch }) {
+  const [form, setForm] = useState({ email:"", password:"" });
+  const [errors, setErrors] = useState({});
+  const [status, setStatus] = useState("");
+
+  const updateField = key => e => {
+    const value = e.target.value;
+    setForm(current => ({ ...current, [key]: value }));
+    setErrors(current => (current[key] ? { ...current, [key]: "" } : current));
+    setStatus("");
+  };
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    const nextErrors = {};
+    const email = form.email.trim();
+
+    if (!email) nextErrors.email = "Email is required.";
+    else if (!EMAIL_RE.test(email)) nextErrors.email = "Enter a valid email address.";
+
+    if (!form.password) nextErrors.password = "Password is required.";
+    else if (form.password.length < MIN_PASSWORD_LENGTH) nextErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    console.log("Mock artist login submitted", { email });
+    setStatus("This sign-in is a frontend preview only. Your details were not sent anywhere.");
+  };
+
+  return (
+    <AuthScene
+      eyebrow="Artist Login"
+      title="Welcome back to the BrisVO collective."
+      copy="Sign in to access your artist-side space. The same straightforward BrisVO approach applies here too: professional, local, and easy to work with."
+      panelTitle="Artist Sign-In"
+      panelCopy="Use your email and password to enter the BrisVO artist area."
+      onBack={onBack}
+    >
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        <AuthField
+          id="login-email"
+          label="Email"
+          type="email"
+          value={form.email}
+          onChange={updateField("email")}
+          autoComplete="email"
+          placeholder="artist@brisvo.com.au"
+          error={errors.email}
+        />
+        <AuthField
+          id="login-password"
+          label="Password"
+          type="password"
+          value={form.password}
+          onChange={updateField("password")}
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          error={errors.password}
+        />
+
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => {}}
+            className="cursor-pointer bg-transparent p-0 text-white/54 transition hover:text-[#ff93a4]"
+          >
+            Forgot password?
+          </button>
+          <span className="text-white/35">Artist access</span>
+        </div>
+
+        <button
+          type="submit"
+          className="site-button site-button--primary site-button--full"
+          style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
+        >
+          Sign In
+        </button>
+      </form>
+
+      <div aria-live="polite" className="mt-5 min-h-6">
+        {status&&(
+          <p className="rounded-2xl border border-[#00c48c]/30 bg-[#00c48c]/10 px-4 py-3 text-sm leading-6 text-[#b6ffe7]">
+            {status}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-6 border-t border-white/10 pt-5 text-sm text-white/56">
+        Need access to BrisVO artist tools?{" "}
+        <button
+          type="button"
+          onClick={onSwitch}
+          className="cursor-pointer bg-transparent p-0 font-semibold text-[#ff93a4] transition hover:text-white"
+        >
+          Create one here
+        </button>
+      </div>
+    </AuthScene>
+  );
+}
+
+function ArtistRegisterView({ onBack, onSwitch }) {
+  const [form, setForm] = useState({ fullName:"", email:"", password:"", confirmPassword:"" });
+  const [errors, setErrors] = useState({});
+  const [status, setStatus] = useState("");
+
+  const updateField = key => e => {
+    const value = e.target.value;
+    setForm(current => ({ ...current, [key]: value }));
+    setErrors(current => (current[key] ? { ...current, [key]: "" } : current));
+    setStatus("");
+  };
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    const nextErrors = {};
+    const fullName = form.fullName.trim();
+    const email = form.email.trim();
+
+    if (!fullName) nextErrors.fullName = "Full name is required.";
+    if (!email) nextErrors.email = "Email is required.";
+    else if (!EMAIL_RE.test(email)) nextErrors.email = "Enter a valid email address.";
+
+    if (!form.password) nextErrors.password = "Password is required.";
+    else if (form.password.length < MIN_PASSWORD_LENGTH) nextErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+
+    if (!form.confirmPassword) nextErrors.confirmPassword = "Please confirm your password.";
+    else if (form.confirmPassword !== form.password) nextErrors.confirmPassword = "Passwords do not match.";
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    console.log("Mock artist registration submitted", { fullName, email });
+    setStatus("This sign-up is a frontend preview only. Your details were not sent anywhere.");
+  };
+
+  return (
+    <AuthScene
+      eyebrow="Artist Sign Up"
+      title="Join Queensland's voice collective."
+      copy="Create your BrisVO artist account details below. This space is designed for professional local talent who want to be easy to find, easy to brief, and ready to deliver."
+      panelTitle="Artist Registration"
+      panelCopy="For BrisVO artists and invited talent. Account approvals and live sign-up are still to come."
+      onBack={onBack}
+    >
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        <AuthField
+          id="register-full-name"
+          label="Full Name"
+          value={form.fullName}
+          onChange={updateField("fullName")}
+          autoComplete="name"
+          placeholder="Your full name"
+          error={errors.fullName}
+        />
+        <AuthField
+          id="register-email"
+          label="Email"
+          type="email"
+          value={form.email}
+          onChange={updateField("email")}
+          autoComplete="email"
+          placeholder="artist@brisvo.com.au"
+          error={errors.email}
+        />
+        <AuthField
+          id="register-password"
+          label="Password"
+          type="password"
+          value={form.password}
+          onChange={updateField("password")}
+          autoComplete="new-password"
+          placeholder={`Minimum ${MIN_PASSWORD_LENGTH} characters`}
+          error={errors.password}
+        />
+        <AuthField
+          id="register-confirm-password"
+          label="Confirm Password"
+          type="password"
+          value={form.confirmPassword}
+          onChange={updateField("confirmPassword")}
+          autoComplete="new-password"
+          placeholder="Re-enter your password"
+          error={errors.confirmPassword}
+        />
+
+        <p className="text-sm leading-6 text-white/52">
+          For BrisVO artists and invited talent only.
+        </p>
+
+        <button
+          type="submit"
+          className="site-button site-button--primary site-button--full"
+          style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
+        >
+          Create Account
+        </button>
+      </form>
+
+      <div aria-live="polite" className="mt-5 min-h-6">
+        {status&&(
+          <p className="rounded-2xl border border-[#00c48c]/30 bg-[#00c48c]/10 px-4 py-3 text-sm leading-6 text-[#b6ffe7]">
+            {status}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-6 border-t border-white/10 pt-5 text-sm text-white/56">
+        Already part of the collective?{" "}
+        <button
+          type="button"
+          onClick={onSwitch}
+          className="cursor-pointer bg-transparent p-0 font-semibold text-[#ff93a4] transition hover:text-white"
+        >
+          Go to login
+        </button>
+      </div>
+    </AuthScene>
   );
 }
 
@@ -407,7 +741,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [, setView] = useState("home");
+  const [view, setView] = useState("home");
 
   const fetchArtistsData = async () => {
     const data = await sb("artists?select=*,demos(*)&order=sort_order.asc&is_published=eq.true");
@@ -527,9 +861,9 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    document.body.classList.toggle("body-lock", menuOpen || Boolean(selected));
+    document.body.classList.toggle("body-lock", view==="home" && (menuOpen || Boolean(selected)));
     return () => document.body.classList.remove("body-lock");
-  }, [menuOpen, selected]);
+  }, [menuOpen, selected, view]);
   useEffect(() => {
     if (!menuOpen) return;
     const onKeyDown = e => {
@@ -567,15 +901,35 @@ export default function App() {
   const handleViewSelect = nextView => {
     setView(nextView);
     setMenuOpen(false);
+    setSelected(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  if (loading) return (
+  if (loading && view==="home") return (
     <div className="loading-screen">
       <div className="brand-mark brand-mark--large">Bris<span style={{color:accent}}>VO</span></div>
       <div className="loading-screen__label">Loading talent…</div>
       <div className="loading-screen__spinner" style={{borderTopColor: accent}}/>
     </div>
   );
+
+  if (view==="login") {
+    return (
+      <ArtistLoginView
+        onBack={()=>handleViewSelect("home")}
+        onSwitch={()=>handleViewSelect("register")}
+      />
+    );
+  }
+
+  if (view==="register") {
+    return (
+      <ArtistRegisterView
+        onBack={()=>handleViewSelect("home")}
+        onSwitch={()=>handleViewSelect("login")}
+      />
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -656,6 +1010,14 @@ export default function App() {
                 className="site-button site-button--ghost site-button--compact mobile-nav__login"
               >
                 Artist Login
+              </button>
+              <button
+                type="button"
+                onClick={()=>handleViewSelect("register")}
+                className="site-button site-button--primary site-button--compact"
+                style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
+              >
+                Join BrisVO
               </button>
             </div>
           </div>
