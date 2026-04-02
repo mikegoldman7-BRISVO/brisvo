@@ -44,6 +44,14 @@ const OFFER_ITEMS = [
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+function sortDemos(demos = []) {
+  return [...demos].sort((left, right) => {
+    const sortOrderDelta = (left.sort_order ?? 0) - (right.sort_order ?? 0);
+    if (sortOrderDelta !== 0) return sortOrderDelta;
+    return (left.id ?? 0) - (right.id ?? 0);
+  });
+}
+
 // ── HELPERS ────────────────────────────────────────────────────
 function Avatar({ name, colour, size=180 }) {
   const initials = name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
@@ -741,8 +749,34 @@ export default function App() {
 
   const fetchArtistsData = async () => {
     const data = await sb("artists?select=*,demos(*)&order=sort_order.asc&is_published=eq.true");
-    data.forEach(a => { if(a.demos) a.demos.sort((x,y)=>x.sort_order-y.sort_order); });
+    data.forEach(a => {
+      if (a.demos) a.demos = sortDemos(a.demos);
+    });
     return data;
+  };
+
+  const handleArtistProfileChange = nextProfile => {
+    if (!nextProfile) {
+      setArtistProfile(null);
+      return;
+    }
+
+    const normalisedProfile = {
+      ...nextProfile,
+      demos: Array.isArray(nextProfile.demos) ? sortDemos(nextProfile.demos) : [],
+    };
+
+    setArtistProfile(normalisedProfile);
+    setArtists(current =>
+      current.map(artist =>
+        artist.id === normalisedProfile.id
+          ? {
+              ...artist,
+              ...normalisedProfile,
+            }
+          : artist,
+      ),
+    );
   };
 
   const handleLogin = async (email, password) => {
@@ -822,7 +856,7 @@ export default function App() {
 
       const { data, error } = await supabase
         .from("artists")
-        .select("*")
+        .select("*, demos(*)")
         .eq("owner_id", session.user.id)
         .single();
 
@@ -842,7 +876,10 @@ export default function App() {
         return;
       }
 
-      setArtistProfile(data);
+      setArtistProfile({
+        ...data,
+        demos: Array.isArray(data?.demos) ? sortDemos(data.demos) : [],
+      });
       setArtistLoading(false);
     };
 
@@ -906,7 +943,7 @@ export default function App() {
         artistProfile={artistProfile}
         artistLoading={artistLoading}
         artistError={artistError}
-        onArtistProfileChange={setArtistProfile}
+        onArtistProfileChange={handleArtistProfileChange}
         onLogout={handleLogout}
       />
     );
