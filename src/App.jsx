@@ -759,10 +759,18 @@ function ArtistRegisterView({ onBack, onSwitch }) {
 function DemoRow({ demo, colour, activeId, onActivate }) {
   const ref = useRef(null);
   const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [pct, setPct] = useState(0);
   const [cur, setCur] = useState("0:00");
   const [dur, setDur] = useState(() => formatDemoDuration(demo.duration_secs));
   const durationLabel = dur || formatDemoDuration(demo.duration_secs);
+  const isCurrentDemo = activeId === demo.file_url;
+  const isLoading = loading && isCurrentDemo;
+  const statusLabel = isLoading
+    ? "Loading audio..."
+    : playing
+      ? `${cur}${durationLabel ? ` / ${durationLabel}` : ""}`
+      : durationLabel || "Tap to load";
 
   useEffect(() => {
     if (activeId !== demo.file_url) {
@@ -777,16 +785,21 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
     if (playing) {
       a.pause();
       setPlaying(false);
+      setLoading(false);
       return;
     }
 
     onActivate(demo.file_url);
+    setLoading(true);
     const playPromise = a.play();
 
     if (playPromise && typeof playPromise.then === "function") {
       playPromise
         .then(() => setPlaying(true))
-        .catch(() => setPlaying(false));
+        .catch(() => {
+          setLoading(false);
+          setPlaying(false);
+        });
       return;
     }
 
@@ -795,20 +808,24 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
 
   return (
     <div style={{border:`2px solid ${colour}33`,borderRadius:10,marginBottom:8,overflow:"hidden",background:"#fff"}}>
-      <audio ref={ref} src={demo.file_url} preload="none"
+      <audio ref={ref} src={demo.file_url} preload="metadata"
         onTimeUpdate={e=>{const a=e.target;setPct(a.duration?(a.currentTime/a.duration)*100:0);setCur(formatDemoDuration(a.currentTime)||"0:00");}}
         onLoadedMetadata={e=>setDur(formatDemoDuration(e.target.duration) || formatDemoDuration(demo.duration_secs))}
-        onPause={()=>setPlaying(false)}
+        onPlaying={() => { setPlaying(true); setLoading(false); }}
+        onWaiting={() => setLoading(true)}
+        onPause={()=>{setPlaying(false);setLoading(false);}}
+        onError={() => setLoading(false)}
         onEnded={()=>{setPlaying(false);setPct(0);setCur("0:00");}}
       />
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",background:playing?colour+"18":"transparent"}} onClick={toggle}>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:isLoading?"progress":"pointer",background:playing||isLoading?colour+"18":"transparent"}} onClick={toggle}>
         <button onClick={e=>{e.stopPropagation();toggle();}}
-          style={{width:36,height:36,borderRadius:"50%",background:playing?colour:"#f0f0f0",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:playing?"#fff":"#444",flexShrink:0,transition:"all .2s",fontWeight:700}}>
-          {playing?"⏸":"▶"}
+          style={{width:36,height:36,borderRadius:"50%",background:playing||isLoading?colour:"#f0f0f0",border:"none",cursor:isLoading?"progress":"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:playing||isLoading?"#fff":"#444",flexShrink:0,transition:"all .2s",fontWeight:700}}
+          aria-label={isLoading ? `Loading ${demo.name}` : playing ? `Pause ${demo.name}` : `Play ${demo.name}`}>
+          {isLoading?"...":playing?"||":">"}
         </button>
         <div style={{flex:1}}>
           <div style={{fontSize:13,fontWeight:700,color:"#111"}}>{demo.name}</div>
-          <div style={{fontSize:11,color:"#888",marginTop:2}}>{playing?`${cur}${durationLabel?` / ${durationLabel}`:""}`:durationLabel||"click to load"}</div>
+          <div style={{fontSize:11,color:isLoading?colour:"#888",marginTop:2,fontWeight:isLoading?700:400}}>{statusLabel}</div>
         </div>
       </div>
       {(playing||pct>0)&&(
