@@ -101,6 +101,17 @@ function sortDemos(demos = []) {
   });
 }
 
+function shuffleArtists(items = []) {
+  const shuffled = [...items];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+}
+
 // ── HELPERS ────────────────────────────────────────────────────
 function Avatar({ name, colour, size=180 }) {
   const initials = name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
@@ -1137,7 +1148,7 @@ export default function App() {
     const initArtists = async () => {
       try {
         const data = await fetchArtistsData();
-        if (!cancelled) setArtists(data);
+        if (!cancelled) setArtists(shuffleArtists(data));
       } catch(e) {
         if (!cancelled) console.error("Failed to load artists:", e);
       } finally {
