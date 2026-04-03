@@ -72,9 +72,53 @@ function clearRecoveryParamsFromLocation() {
   window.history.replaceState({}, document.title, nextUrl);
 }
 
-function getPasswordResetRedirectUrl() {
+function getAuthRedirectUrl() {
   if (typeof window === "undefined") return undefined;
   return `${window.location.origin}${window.location.pathname}`;
+}
+
+function resolveAuthDisplayName(user = {}) {
+  const fullName = typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim() : "";
+
+  if (fullName) return fullName;
+
+  const email = typeof user?.email === "string" ? user.email.trim() : "";
+  if (!email) return "BrisVO Artist";
+
+  const [localPart] = email.split("@");
+  return localPart?.trim() || email;
+}
+
+function createArtistSlug(name = "", userId = "") {
+  const base = String(name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  const suffix = String(userId ?? "").slice(0, 8).toLowerCase();
+
+  if (!base) {
+    return suffix ? `artist-${suffix}` : "artist";
+  }
+
+  return suffix ? `${base}-${suffix}` : base;
+}
+
+function getRegistrationErrorMessage(error) {
+  const code = typeof error?.code === "string" ? error.code.toLowerCase() : "";
+  const message = typeof error?.message === "string" ? error.message.toLowerCase() : "";
+
+  if (
+    code === "user_already_exists"
+    || message.includes("already registered")
+    || message.includes("already been registered")
+    || message.includes("already exists")
+  ) {
+    return "An account already exists for this email. Sign in instead, or reset your password if you've forgotten it.";
+  }
+
+  return "We couldn't create your account right now. Please try again.";
 }
 
 function AuthStatusMessage({ status }) {
@@ -194,6 +238,64 @@ async function fetchPublishedArtistDetail(artistId, fallback = {}) {
   }
 
   return normaliseArtistDetail(data, fallback);
+}
+
+async function fetchOwnedArtistProfile(userId) {
+  const { data, error } = await supabase
+    .from("artists")
+    .select("*, demos(*)")
+    .eq("owner_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data
+    ? {
+        ...data,
+        demos: Array.isArray(data?.demos) ? sortDemos(data.demos) : [],
+      }
+    : null;
+}
+
+async function createStarterArtistProfile(user) {
+  const name = resolveAuthDisplayName(user);
+
+  const { data, error } = await supabase
+    .from("artists")
+    .insert({
+      owner_id: user.id,
+      name,
+      slug: createArtistSlug(name, user.id),
+      tagline: null,
+      is_published: true,
+      is_featured: false,
+      sort_order: 999,
+      categories: [],
+      languages: [],
+      bio: null,
+      gender: null,
+      accent: null,
+      photo_url: null,
+      photo_thumb_url: null,
+      brand_color: null,
+    })
+    .select("*, demos(*)")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      return fetchOwnedArtistProfile(user.id);
+    }
+
+    throw error;
+  }
+
+  return {
+    ...data,
+    demos: Array.isArray(data?.demos) ? sortDemos(data.demos) : [],
+  };
 }
 
 function shuffleArtists(items = []) {
@@ -636,19 +738,19 @@ function ArtistResetPasswordView({ onBackToLogin, onRequestNewLink, onSubmit, pe
   );
 }
 
-function ArtistRegisterView({ onBack, onSwitch }) {
+function ArtistRegisterView({ onBack, onSwitch, onRegister, pending }) {
   const [form, setForm] = useState({ fullName:"", email:"", password:"", confirmPassword:"" });
   const [errors, setErrors] = useState({});
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(buildAuthStatus("", ""));
 
   const updateField = key => e => {
     const value = e.target.value;
     setForm(current => ({ ...current, [key]: value }));
     setErrors(current => (current[key] ? { ...current, [key]: "" } : current));
-    setStatus("");
+    setStatus(buildAuthStatus("", ""));
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
     const nextErrors = {};
     const fullName = form.fullName.trim();
@@ -667,16 +769,31 @@ function ArtistRegisterView({ onBack, onSwitch }) {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    setStatus("This sign-up is a frontend preview only. Your details were not sent anywhere.");
+    setStatus(buildAuthStatus("success", "Creating your account…"));
+
+    const { error } = await onRegister(fullName, email, form.password);
+
+    if (error) {
+      setStatus(buildAuthStatus("error", error.message || "We couldn't create your account right now. Please try again."));
+      return;
+    }
+
+    setForm(current => ({
+      ...current,
+      password: "",
+      confirmPassword: "",
+    }));
+    setErrors({});
+    setStatus(buildAuthStatus("success", "Check your email to confirm your account before signing in."));
   };
 
   return (
-    <AuthScene
+      <AuthScene
       eyebrow="Artist Sign Up"
       title="Join Queensland's voice collective."
-      copy="Create your BrisVO artist account details below. This space is designed for professional local talent who want to be easy to find, easy to brief, and ready to deliver."
+      copy="Create your BrisVO artist account below. We'll send you a confirmation email first, then you'll be able to sign in and complete your private profile."
       panelTitle="Artist Registration"
-      panelCopy="For BrisVO artists and invited talent. Account approvals and live sign-up are still to come."
+      panelCopy="Live sign-up is now available. Register with your email, confirm your inbox, and we'll prepare your private artist dashboard on first sign-in."
       onBack={onBack}
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
@@ -726,19 +843,16 @@ function ArtistRegisterView({ onBack, onSwitch }) {
 
         <button
           type="submit"
+          disabled={pending}
           className="site-button site-button--primary site-button--full"
-          style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
+          style={{ "--button-color": accent, "--button-shadow": `${accent}44`, opacity: pending ? 0.7 : 1 }}
         >
-          Create Account
+          {pending ? "Creating Account…" : "Create Account"}
         </button>
       </form>
 
       <div aria-live="polite" className="mt-5 min-h-6">
-        {status&&(
-          <p className="rounded-2xl border border-[#00c48c]/30 bg-[#00c48c]/10 px-4 py-3 text-sm leading-6 text-[#b6ffe7]">
-            {status}
-          </p>
-        )}
+        <AuthStatusMessage status={status} />
       </div>
 
       <div className="mt-6 border-t border-white/10 pt-5 text-sm text-white/56">
@@ -1111,6 +1225,7 @@ export default function App() {
   const [resetRecoveryReady, setResetRecoveryReady] = useState(() => detectRecoveryModeFromLocation());
   const [authEmailPrefill, setAuthEmailPrefill] = useState("");
   const artistDetailCacheRef = useRef(new Map());
+  const sessionUser = session?.user ?? null;
 
   const closeSelectedArtist = () => {
     setSelected(null);
@@ -1196,16 +1311,26 @@ export default function App() {
 
     setArtistProfile(normalisedProfile);
     artistDetailCacheRef.current.set(normalisedProfile.id, normalisedProfile);
-    setArtists(current =>
-      current.map(artist =>
+    setArtists(current => {
+      const hasArtist = current.some(artist => artist.id === normalisedProfile.id);
+
+      if (!normalisedProfile.is_published) {
+        return current.filter(artist => artist.id !== normalisedProfile.id);
+      }
+
+      if (!hasArtist) {
+        return [summaryProfile, ...current];
+      }
+
+      return current.map(artist =>
         artist.id === normalisedProfile.id
           ? {
               ...artist,
               ...summaryProfile,
             }
           : artist,
-      ),
-    );
+      );
+    });
     setSelected(current => (
       current?.id === normalisedProfile.id
         ? {
@@ -1239,12 +1364,47 @@ export default function App() {
     }
   };
 
+  const handleRegister = async (fullName, email, password) => {
+    setAuthLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName },
+          emailRedirectTo: getAuthRedirectUrl(),
+        },
+      });
+
+      if (error) {
+        logAuthError("Registration error:", error);
+        return {
+          data,
+          error: {
+            ...error,
+            message: getRegistrationErrorMessage(error),
+          },
+        };
+      }
+
+      if (data?.session) {
+        setSession(data.session);
+        setView("home");
+      }
+
+      return { data, error: null };
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const handleForgotPassword = async email => {
     setAuthLoading(true);
 
     try {
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: getPasswordResetRedirectUrl(),
+        redirectTo: getAuthRedirectUrl(),
       });
 
       if (error) {
@@ -1340,8 +1500,8 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-      const loadArtistProfile = async () => {
-      if (!session?.user?.id) {
+    const loadArtistProfile = async () => {
+      if (!sessionUser?.id) {
         setArtistProfile(null);
         setArtistError("");
         setArtistLoading(false);
@@ -1351,33 +1511,28 @@ export default function App() {
       setArtistLoading(true);
       setArtistError("");
 
-      const { data, error } = await supabase
-        .from("artists")
-        .select("*, demos(*)")
-        .eq("owner_id", session.user.id)
-        .single();
+      try {
+        let profile = await fetchOwnedArtistProfile(sessionUser.id);
 
-      if (cancelled) return;
+        if (!profile) {
+          profile = await createStarterArtistProfile(sessionUser);
+        }
 
-      if (error) {
-        if (error.code === "PGRST116") {
-          setArtistProfile(null);
-          setArtistError("");
-        } else {
+        if (cancelled) return;
+
+        handleArtistProfileChange(profile);
+        setArtistError("");
+      } catch (error) {
+        if (!cancelled) {
           console.error("Artist profile fetch error:", error.message);
           setArtistProfile(null);
           setArtistError("We couldn't load your artist profile right now.");
         }
-
-        setArtistLoading(false);
-        return;
+      } finally {
+        if (!cancelled) {
+          setArtistLoading(false);
+        }
       }
-
-      setArtistProfile({
-        ...data,
-        demos: Array.isArray(data?.demos) ? sortDemos(data.demos) : [],
-      });
-      setArtistLoading(false);
     };
 
     loadArtistProfile();
@@ -1385,7 +1540,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.id]);
+  }, [sessionUser]);
   useEffect(() => {
     if (!selected?.id) {
       setSelectedDetail(null);
@@ -1562,6 +1717,8 @@ export default function App() {
       <ArtistRegisterView
         onBack={()=>handleViewSelect("home")}
         onSwitch={()=>handleViewSelect("login")}
+        onRegister={handleRegister}
+        pending={authLoading}
       />
     );
   }
