@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowPathIcon,
   ArrowDownIcon,
   ArrowUpIcon,
   Bars3Icon,
@@ -1095,6 +1096,7 @@ export default function Dashboard({
                           Upload Photo
                         </SecondaryButton>
                         <SecondaryButton onClick={() => refreshPhotoLibrary()} disabled={!artistProfile?.id || photoLibraryLoading}>
+                          <ArrowPathIcon className={classNames("size-4", photoLibraryLoading ? "animate-spin" : "")} />
                           Refresh Library
                         </SecondaryButton>
                       </div>
@@ -1138,14 +1140,14 @@ export default function Dashboard({
                                     <div className="aspect-[4/5] bg-white/6">
                                       <img
                                         src={file.publicUrl}
-                                        alt={file.name}
+                                        alt={file.displayName || file.name}
                                         className="h-full w-full object-cover"
                                       />
                                     </div>
                                     <div className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] p-5">
                                       <div className="flex items-center justify-between gap-3">
                                         <div className="min-w-0 truncate text-sm font-semibold text-white">
-                                          {file.name}
+                                          {file.displayName || file.name}
                                         </div>
                                         {isCurrent && (
                                           <span className="shrink-0 rounded-full border border-[#00c48c]/30 bg-[#00c48c]/12 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#b6ffe7]">

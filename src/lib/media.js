@@ -1,7 +1,7 @@
 import { supabase, supabaseAnonKey, supabaseUrl } from "./supabase";
-import { normaliseWhitespace } from "./storage-paths";
+import { getDisplayFileName, normaliseWhitespace } from "./storage-paths";
 
-export { createStoragePath, deriveStoragePathFromPublicUrl } from "./storage-paths";
+export { createStoragePath, deriveStoragePathFromPublicUrl, getDisplayFileName } from "./storage-paths";
 
 export const PROFILE_IMAGE_BUCKET = import.meta.env.VITE_SUPABASE_PROFILE_BUCKET || "artist-images";
 export const DEMO_AUDIO_BUCKET = import.meta.env.VITE_SUPABASE_DEMO_BUCKET || "artist-demos";
@@ -138,6 +138,7 @@ export async function listBucketFolder(bucket, folder) {
       return {
         ...entry,
         path,
+        displayName: getDisplayFileName(entry.name),
         publicUrl: getPublicUrl(bucket, path),
       };
     });

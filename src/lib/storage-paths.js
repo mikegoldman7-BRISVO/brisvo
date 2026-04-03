@@ -1,4 +1,5 @@
 const STORAGE_PUBLIC_SEGMENT = "/storage/v1/object/public/";
+const GENERATED_STORAGE_PREFIX_PATTERN = /^\d{10,}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i;
 
 function requireRandomUuid() {
   const randomUuid = globalThis.crypto?.randomUUID?.bind(globalThis.crypto);
@@ -31,6 +32,20 @@ export function stripFileExtension(fileName = "") {
 export function getFileExtension(fileName = "") {
   const baseName = String(fileName ?? "").split("/").pop() || "";
   return baseName.includes(".") ? baseName.split(".").pop().toLowerCase() : "bin";
+}
+
+export function getDisplayFileName(fileName = "") {
+  const baseName = String(fileName ?? "").split("/").pop() || "";
+
+  if (!baseName) {
+    return "";
+  }
+
+  const stem = stripFileExtension(baseName);
+  const extension = baseName.includes(".") ? `.${getFileExtension(baseName)}` : "";
+  const displayStem = stem.replace(GENERATED_STORAGE_PREFIX_PATTERN, "");
+
+  return `${displayStem || stem}${extension}`;
 }
 
 export function stripLegacyNumericSuffix(value = "") {

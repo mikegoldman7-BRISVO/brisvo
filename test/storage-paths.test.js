@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildStoragePath,
   createArtistMatchIndex,
+  getDisplayFileName,
   normaliseArtistMatchKey,
   normaliseLegacyFileMatchKey,
   resolveArtistMatchForKey,
@@ -15,14 +16,22 @@ test("buildStoragePath preserves the artist/profile upload contract", () => {
     artistId: "artist-123",
     fileName: "Andrea Moor Final.JPG",
     kind: "profile",
-    randomId: "uuid-456",
+    randomId: "123e4567-e89b-12d3-a456-426614174000",
     timestamp: 1712123456789,
   });
 
   assert.equal(
     path,
-    "artist-123/profile/1712123456789-uuid-456-andrea-moor-final.jpg",
+    "artist-123/profile/1712123456789-123e4567-e89b-12d3-a456-426614174000-andrea-moor-final.jpg",
   );
+});
+
+test("getDisplayFileName strips generated storage prefixes for UI labels", () => {
+  assert.equal(
+    getDisplayFileName("1712123456789-123e4567-e89b-12d3-a456-426614174000-andrea-moor-final.jpg"),
+    "andrea-moor-final.jpg",
+  );
+  assert.equal(getDisplayFileName("plain-file-name.jpg"), "plain-file-name.jpg");
 });
 
 test("normaliseArtistMatchKey collapses whitespace and punctuation", () => {
