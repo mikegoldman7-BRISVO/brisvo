@@ -44,6 +44,54 @@ const OFFER_ITEMS = [
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+function logAuthError(context, error) {
+  if (import.meta.env.DEV) {
+    console.error(context, error);
+  }
+}
+
+function buildAuthStatus(tone, message) {
+  return { tone, message };
+}
+
+function detectRecoveryModeFromLocation() {
+  if (typeof window === "undefined") return false;
+
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  const hashParams = new URLSearchParams(hash);
+  const searchParams = new URLSearchParams(window.location.search);
+
+  return hashParams.get("type") === "recovery" || searchParams.get("type") === "recovery";
+}
+
+function clearRecoveryParamsFromLocation() {
+  if (typeof window === "undefined") return;
+
+  const nextUrl = `${window.location.pathname}${window.location.search}`;
+  window.history.replaceState({}, document.title, nextUrl);
+}
+
+function getPasswordResetRedirectUrl() {
+  if (typeof window === "undefined") return undefined;
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+function AuthStatusMessage({ status }) {
+  if (!status?.message) return null;
+
+  return (
+    <p
+      className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${
+        status.tone === "error"
+          ? "border-[#ff7a8b]/40 bg-[#2a1117] text-[#ffb1bc]"
+          : "border-[#00c48c]/30 bg-[#00c48c]/10 text-[#b6ffe7]"
+      }`}
+    >
+      {status.message}
+    </p>
+  );
+}
+
 function sortDemos(demos = []) {
   return [...demos].sort((left, right) => {
     const sortOrderDelta = (left.sort_order ?? 0) - (right.sort_order ?? 0);
@@ -94,7 +142,7 @@ function AuthField({ id, label, type="text", value, onChange, error, autoComplet
   );
 }
 
-function AuthScene({ eyebrow, title, copy, panelTitle, panelCopy, onBack, children }) {
+function AuthScene({ eyebrow, title, copy, panelTitle, panelCopy, onBack, backLabel = "Back to Home", children }) {
   const authHighlights = [
     ["Independent talent", "Local voices, direct booking, no generic portal flow."],
     ["Studio ready", "A BrisVO sign-in is built for working artists and working sessions."],
@@ -126,7 +174,7 @@ function AuthScene({ eyebrow, title, copy, panelTitle, panelCopy, onBack, childr
                 onClick={onBack}
                 className="site-button site-button--ghost site-button--compact"
               >
-                Back to Home
+                {backLabel}
               </button>
             </div>
             <div className="mb-8">
@@ -172,18 +220,16 @@ function AuthScene({ eyebrow, title, copy, panelTitle, panelCopy, onBack, childr
   );
 }
 
-function ArtistLoginView({ onBack, onSwitch, onLogin, loginPending }) {
+function ArtistLoginView({ onBack, onSwitch, onForgotPassword, onLogin, loginPending }) {
   const [form, setForm] = useState({ email:"", password:"" });
   const [errors, setErrors] = useState({});
-  const [status, setStatus] = useState("");
-  const [statusTone, setStatusTone] = useState("success");
+  const [status, setStatus] = useState(buildAuthStatus("", ""));
 
   const updateField = key => e => {
     const value = e.target.value;
     setForm(current => ({ ...current, [key]: value }));
     setErrors(current => (current[key] ? { ...current, [key]: "" } : current));
-    setStatus("");
-    setStatusTone("success");
+    setStatus(buildAuthStatus("", ""));
   };
 
   const handleSubmit = async e => {
@@ -200,14 +246,12 @@ function ArtistLoginView({ onBack, onSwitch, onLogin, loginPending }) {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    setStatusTone("success");
-    setStatus("Signing you in…");
+    setStatus(buildAuthStatus("success", "Signing you in…"));
 
     const { error } = await onLogin(email, form.password);
 
     if (error) {
-      setStatusTone("error");
-      setStatus(error.message);
+      setStatus(buildAuthStatus("error", "We couldn't sign you in. Check your email and password, then try again."));
     }
   };
 
@@ -219,6 +263,7 @@ function ArtistLoginView({ onBack, onSwitch, onLogin, loginPending }) {
       panelTitle="Artist Sign-In"
       panelCopy="Use your email and password to enter the BrisVO artist area."
       onBack={onBack}
+      backLabel="Back to Home"
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <AuthField
@@ -245,7 +290,7 @@ function ArtistLoginView({ onBack, onSwitch, onLogin, loginPending }) {
         <div className="flex items-center justify-between gap-3 text-sm">
           <button
             type="button"
-            onClick={() => {}}
+            onClick={() => onForgotPassword(form.email.trim())}
             className="cursor-pointer bg-transparent p-0 text-white/54 transition hover:text-[#ff93a4]"
           >
             Forgot password?
@@ -264,17 +309,7 @@ function ArtistLoginView({ onBack, onSwitch, onLogin, loginPending }) {
       </form>
 
       <div aria-live="polite" className="mt-5 min-h-6">
-        {status&&(
-          <p
-            className={`rounded-2xl border px-4 py-3 text-sm leading-6 ${
-              statusTone === "error"
-                ? "border-[#ff7a8b]/40 bg-[#2a1117] text-[#ffb1bc]"
-                : "border-[#00c48c]/30 bg-[#00c48c]/10 text-[#b6ffe7]"
-            }`}
-          >
-            {status}
-          </p>
-        )}
+        <AuthStatusMessage status={status} />
       </div>
 
       <div className="mt-6 border-t border-white/10 pt-5 text-sm text-white/56">
@@ -285,6 +320,209 @@ function ArtistLoginView({ onBack, onSwitch, onLogin, loginPending }) {
           className="cursor-pointer bg-transparent p-0 font-semibold text-[#ff93a4] transition hover:text-white"
         >
           Create one here
+        </button>
+      </div>
+    </AuthScene>
+  );
+}
+
+function ArtistForgotPasswordView({ onBack, onSubmit, pending, initialEmail = "" }) {
+  const [email, setEmail] = useState(initialEmail);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState(buildAuthStatus("", ""));
+
+  useEffect(() => {
+    setEmail(initialEmail);
+  }, [initialEmail]);
+
+  const handleSubmit = async event => {
+    event.preventDefault();
+    const nextEmail = email.trim();
+
+    setError("");
+    setStatus(buildAuthStatus("", ""));
+
+    if (!nextEmail) {
+      setError("Email is required.");
+      return;
+    }
+
+    if (!EMAIL_RE.test(nextEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+
+    setStatus(buildAuthStatus("success", "Sending reset instructions…"));
+    const { error: requestError } = await onSubmit(nextEmail);
+
+    if (requestError) {
+      setStatus(buildAuthStatus("error", "We couldn't send password reset instructions right now. Please try again."));
+      return;
+    }
+
+    setStatus(buildAuthStatus("success", "If that email is linked to a BrisVO artist account, reset instructions are on the way."));
+  };
+
+  return (
+    <AuthScene
+      eyebrow="Password Reset"
+      title="Reset your BrisVO password."
+      copy="Enter your email and we'll send a secure password reset link back to this BrisVO sign-in flow."
+      panelTitle="Forgot Password"
+      panelCopy="Use the same email address you sign in with. Reset instructions will only go to the account owner."
+      onBack={onBack}
+      backLabel="Back to Login"
+    >
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        <AuthField
+          id="forgot-password-email"
+          label="Email"
+          type="email"
+          value={email}
+          onChange={event => {
+            setEmail(event.target.value);
+            setError("");
+            setStatus(buildAuthStatus("", ""));
+          }}
+          autoComplete="email"
+          placeholder="artist@brisvo.com.au"
+          error={error}
+        />
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="site-button site-button--primary site-button--full"
+          style={{ "--button-color": accent, "--button-shadow": `${accent}44`, opacity: pending ? 0.7 : 1 }}
+        >
+          {pending ? "Sending…" : "Send Reset Link"}
+        </button>
+      </form>
+
+      <div aria-live="polite" className="mt-5 min-h-6">
+        <AuthStatusMessage status={status} />
+      </div>
+
+      <div className="mt-6 border-t border-white/10 pt-5 text-sm text-white/56">
+        Remembered it?{" "}
+        <button
+          type="button"
+          onClick={onBack}
+          className="cursor-pointer bg-transparent p-0 font-semibold text-[#ff93a4] transition hover:text-white"
+        >
+          Back to login
+        </button>
+      </div>
+    </AuthScene>
+  );
+}
+
+function ArtistResetPasswordView({ onBackToLogin, onRequestNewLink, onSubmit, pending, recoveryReady }) {
+  const [form, setForm] = useState({ password:"", confirmPassword:"" });
+  const [errors, setErrors] = useState({});
+  const [status, setStatus] = useState(buildAuthStatus("", ""));
+  const [completed, setCompleted] = useState(false);
+
+  const updateField = key => event => {
+    const value = event.target.value;
+    setForm(current => ({ ...current, [key]: value }));
+    setErrors(current => (current[key] ? { ...current, [key]: "" } : current));
+    setStatus(buildAuthStatus("", ""));
+  };
+
+  const handleSubmit = async event => {
+    event.preventDefault();
+
+    if (!recoveryReady) {
+      setStatus(buildAuthStatus("error", "This password reset link is no longer available. Request a new one and try again."));
+      return;
+    }
+
+    const nextErrors = {};
+
+    if (!form.password) nextErrors.password = "Password is required.";
+    else if (form.password.length < MIN_PASSWORD_LENGTH) nextErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+
+    if (!form.confirmPassword) nextErrors.confirmPassword = "Please confirm your password.";
+    else if (form.confirmPassword !== form.password) nextErrors.confirmPassword = "Passwords do not match.";
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setStatus(buildAuthStatus("success", "Updating your password…"));
+    const { error } = await onSubmit(form.password);
+
+    if (error) {
+      setStatus(buildAuthStatus("error", "We couldn't update your password right now. Request a new reset link and try again."));
+      return;
+    }
+
+    setCompleted(true);
+    setStatus(buildAuthStatus("success", "Your password has been updated. Sign in with your new password when you're ready."));
+    setForm({ password: "", confirmPassword: "" });
+    setErrors({});
+  };
+
+  return (
+    <AuthScene
+      eyebrow="Set New Password"
+      title="Choose a new password for BrisVO."
+      copy="This reset session is temporary. Set your new password now, then return to sign in."
+      panelTitle="Reset Password"
+      panelCopy="Use at least eight characters and confirm the new password before you continue."
+      onBack={onBackToLogin}
+      backLabel="Back to Login"
+    >
+      {recoveryReady ? (
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          <AuthField
+            id="reset-password"
+            label="New Password"
+            type="password"
+            value={form.password}
+            onChange={updateField("password")}
+            autoComplete="new-password"
+            placeholder={`Minimum ${MIN_PASSWORD_LENGTH} characters`}
+            error={errors.password}
+          />
+          <AuthField
+            id="reset-confirm-password"
+            label="Confirm Password"
+            type="password"
+            value={form.confirmPassword}
+            onChange={updateField("confirmPassword")}
+            autoComplete="new-password"
+            placeholder="Re-enter your new password"
+            error={errors.confirmPassword}
+          />
+
+          <button
+            type="submit"
+            disabled={pending || completed}
+            className="site-button site-button--primary site-button--full"
+            style={{ "--button-color": accent, "--button-shadow": `${accent}44`, opacity: pending || completed ? 0.7 : 1 }}
+          >
+            {pending ? "Updating…" : completed ? "Password Updated" : "Update Password"}
+          </button>
+        </form>
+      ) : (
+        <div className="rounded-[24px] border border-[#ff7a8b]/30 bg-[#2a1117] px-5 py-4 text-sm leading-6 text-[#ffb1bc]">
+          This password reset link is no longer valid. Request a new one to continue.
+        </div>
+      )}
+
+      <div aria-live="polite" className="mt-5 min-h-6">
+        <AuthStatusMessage status={status} />
+      </div>
+
+      <div className="mt-6 border-t border-white/10 pt-5 text-sm text-white/56">
+        {completed ? "Ready to continue?" : "Need a fresh reset link?"}{" "}
+        <button
+          type="button"
+          onClick={completed ? onBackToLogin : onRequestNewLink}
+          className="cursor-pointer bg-transparent p-0 font-semibold text-[#ff93a4] transition hover:text-white"
+        >
+          {completed ? "Back to login" : "Request another reset email"}
         </button>
       </div>
     </AuthScene>
@@ -699,12 +937,14 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [view, setView] = useState("home");
+  const [view, setView] = useState(() => (detectRecoveryModeFromLocation() ? "reset-password" : "home"));
   const [session, setSession] = useState(null);
   const [artistProfile, setArtistProfile] = useState(null);
   const [artistLoading, setArtistLoading] = useState(false);
   const [artistError, setArtistError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [resetRecoveryReady, setResetRecoveryReady] = useState(() => detectRecoveryModeFromLocation());
+  const [authEmailPrefill, setAuthEmailPrefill] = useState("");
 
   // Session setup: read the initial Supabase session on mount.
   useEffect(() => {
@@ -714,12 +954,18 @@ export default function App() {
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.error("Session check error:", error.message);
+        logAuthError("Session check error:", error);
         return;
       }
 
       if (!active) return;
       setSession(data.session);
+
+      if (detectRecoveryModeFromLocation()) {
+        setResetRecoveryReady(true);
+        setView("reset-password");
+        return;
+      }
 
       if (!data.session) {
         setView("home");
@@ -729,10 +975,16 @@ export default function App() {
     syncSession();
 
     // Auth listener: keep session state in sync with login/logout changes.
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
 
       setSession(nextSession);
+
+      if (event === "PASSWORD_RECOVERY" || detectRecoveryModeFromLocation()) {
+        setResetRecoveryReady(true);
+        setView("reset-password");
+        return;
+      }
 
       if (!nextSession) {
         setView("home");
@@ -789,7 +1041,7 @@ export default function App() {
       });
 
       if (error) {
-        console.error("Login error:", error.message);
+        logAuthError("Login error:", error);
         return { data, error };
       }
 
@@ -801,12 +1053,46 @@ export default function App() {
     }
   };
 
+  const handleForgotPassword = async email => {
+    setAuthLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: getPasswordResetRedirectUrl(),
+      });
+
+      if (error) {
+        logAuthError("Forgot password request failed:", error);
+      }
+
+      return { data, error };
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleResetPassword = async password => {
+    setAuthLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.updateUser({ password });
+
+      if (error) {
+        logAuthError("Password reset update failed:", error);
+      }
+
+      return { data, error };
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   // Logout handler: sign out and return the app to the landing page state.
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      console.error("Logout error:", error.message);
+      logAuthError("Logout error:", error);
       return;
     }
 
@@ -817,6 +1103,31 @@ export default function App() {
     setView("home");
     setSelected(null);
     setMenuOpen(false);
+    setResetRecoveryReady(false);
+    clearRecoveryParamsFromLocation();
+  };
+
+  const handleRequestAnotherReset = () => {
+    clearRecoveryParamsFromLocation();
+    setResetRecoveryReady(false);
+    setAuthEmailPrefill(session?.user?.email || authEmailPrefill);
+    setView("forgot-password");
+  };
+
+  const handleBackToLogin = async () => {
+    clearRecoveryParamsFromLocation();
+    setResetRecoveryReady(false);
+
+    if (session) {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        logAuthError("Reset flow sign out failed:", error);
+      }
+    }
+
+    setSession(null);
+    setView("login");
   };
 
   useEffect(() => {
@@ -935,7 +1246,7 @@ export default function App() {
   };
 
   // Dashboard conditional rendering: authenticated users go straight to the dashboard.
-  if (session) {
+  if (session && view !== "reset-password") {
     return (
       <Dashboard
         session={session}
@@ -962,8 +1273,35 @@ export default function App() {
       <ArtistLoginView
         onBack={()=>handleViewSelect("home")}
         onSwitch={()=>handleViewSelect("register")}
+        onForgotPassword={email => {
+          setAuthEmailPrefill(email);
+          handleViewSelect("forgot-password");
+        }}
         onLogin={handleLogin}
         loginPending={authLoading}
+      />
+    );
+  }
+
+  if (view==="forgot-password") {
+    return (
+      <ArtistForgotPasswordView
+        onBack={() => handleViewSelect("login")}
+        onSubmit={handleForgotPassword}
+        pending={authLoading}
+        initialEmail={authEmailPrefill}
+      />
+    );
+  }
+
+  if (view==="reset-password") {
+    return (
+      <ArtistResetPasswordView
+        onBackToLogin={handleBackToLogin}
+        onRequestNewLink={handleRequestAnotherReset}
+        onSubmit={handleResetPassword}
+        pending={authLoading}
+        recoveryReady={resetRecoveryReady || Boolean(session)}
       />
     );
   }

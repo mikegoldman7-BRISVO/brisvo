@@ -56,6 +56,7 @@ const AVAILABLE_CATEGORIES = [
   "IVR & On Hold",
   "Jingle",
 ];
+const MIN_PASSWORD_LENGTH = 8;
 
 const navigation = [{ name: "Dashboard", href: "#", current: true }];
 
@@ -268,6 +269,14 @@ export default function Dashboard({
   const [demoSaving, setDemoSaving] = useState(false);
   const [demoUploadState, setDemoUploadState] = useState({ active: false, fileName: "", progress: 0 });
   const [demoDeletingId, setDemoDeletingId] = useState(null);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [passwordNotice, setPasswordNotice] = useState(buildNotice("", ""));
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const profileImageInputRef = useRef(null);
   const demoUploadInputRef = useRef(null);
 
@@ -293,6 +302,17 @@ export default function Dashboard({
   useEffect(() => {
     setDemoDrafts(JSON.parse(liveDemosSerialized));
   }, [artistProfile?.id, liveDemosSerialized]);
+
+  useEffect(() => {
+    setPasswordForm({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
+    setPasswordErrors({});
+    setPasswordNotice(buildNotice("", ""));
+    setPasswordSaving(false);
+  }, [user?.id]);
 
   const refreshPhotoLibrary = async ({ silent = false, throwOnError = false } = {}) => {
     if (!profileFolder) {
@@ -595,6 +615,86 @@ export default function Dashboard({
       current.map(demo => (demo.id === demoId ? { ...demo, name: value } : demo)),
     );
     setDemoNotice(buildNotice("", ""));
+  };
+
+  const updatePasswordField = key => event => {
+    const value = event.target.value;
+    setPasswordForm(current => ({ ...current, [key]: value }));
+    setPasswordErrors(current => (current[key] ? { ...current, [key]: "" } : current));
+    setPasswordNotice(buildNotice("", ""));
+  };
+
+  const handleChangePassword = async event => {
+    event.preventDefault();
+
+    if (!user?.email || passwordSaving) return;
+
+    const nextErrors = {};
+
+    if (!passwordForm.currentPassword) {
+      nextErrors.currentPassword = "Current password is required.";
+    }
+
+    if (!passwordForm.newPassword) {
+      nextErrors.newPassword = "New password is required.";
+    } else if (passwordForm.newPassword.length < MIN_PASSWORD_LENGTH) {
+      nextErrors.newPassword = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+    }
+
+    if (!passwordForm.confirmPassword) {
+      nextErrors.confirmPassword = "Please confirm your new password.";
+    } else if (passwordForm.confirmPassword !== passwordForm.newPassword) {
+      nextErrors.confirmPassword = "Passwords do not match.";
+    }
+
+    if (
+      passwordForm.currentPassword &&
+      passwordForm.newPassword &&
+      passwordForm.currentPassword === passwordForm.newPassword
+    ) {
+      nextErrors.newPassword = "Choose a new password that differs from your current one.";
+    }
+
+    setPasswordErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    setPasswordSaving(true);
+    setPasswordNotice(buildNotice("", ""));
+
+    try {
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: passwordForm.currentPassword,
+      });
+
+      if (reauthError) {
+        throw reauthError;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword,
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setPasswordErrors({});
+      setPasswordNotice(buildNotice("success", "Your password has been updated."));
+    } catch (error) {
+      logDashboardError("Password change failed:", error);
+      setPasswordNotice(buildNotice("error", "We couldn't change your password. Check your details and try again."));
+    } finally {
+      setPasswordSaving(false);
+    }
   };
 
   const handleMoveDemo = (index, offset) => {
@@ -1267,6 +1367,109 @@ export default function Dashboard({
                           : artistError || artistProfile?.bio || "Your profile will appear here once your BrisVO artist record is linked to this account."}
                       </p>
                     )}
+                  </div>
+
+                  <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#ff96a5]">
+                          Account Security
+                        </div>
+                        <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-white">
+                          Change password
+                        </h3>
+                        <p className="mt-2 max-w-xl text-sm leading-6 text-white/62">
+                          Confirm your current password, then choose a new one for this BrisVO account.
+                        </p>
+                      </div>
+                      <div className="text-xs uppercase tracking-[0.22em] text-white/38">
+                        Minimum {MIN_PASSWORD_LENGTH} characters
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      <StatusNotice notice={passwordNotice} />
+                    </div>
+
+                    <form onSubmit={handleChangePassword} className="mt-6 space-y-4">
+                      <label className="block">
+                        <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.24em] text-white/42">
+                          Current Password
+                        </span>
+                        <input
+                          type="password"
+                          value={passwordForm.currentPassword}
+                          onChange={updatePasswordField("currentPassword")}
+                          autoComplete="current-password"
+                          className={classNames(
+                            "w-full rounded-[22px] border bg-black/20 px-4 py-4 text-sm text-white outline-none transition",
+                            passwordErrors.currentPassword
+                              ? "border-[#ff7a8b] focus:border-[#ff7a8b]"
+                              : "border-white/10 focus:border-[#ff3d57]/70",
+                          )}
+                        />
+                        {passwordErrors.currentPassword && (
+                          <p className="mt-2 text-sm text-[#ff9daa]">{passwordErrors.currentPassword}</p>
+                        )}
+                      </label>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.24em] text-white/42">
+                            New Password
+                          </span>
+                          <input
+                            type="password"
+                            value={passwordForm.newPassword}
+                            onChange={updatePasswordField("newPassword")}
+                            autoComplete="new-password"
+                            className={classNames(
+                              "w-full rounded-[22px] border bg-black/20 px-4 py-4 text-sm text-white outline-none transition",
+                              passwordErrors.newPassword
+                                ? "border-[#ff7a8b] focus:border-[#ff7a8b]"
+                                : "border-white/10 focus:border-[#ff3d57]/70",
+                            )}
+                          />
+                          {passwordErrors.newPassword && (
+                            <p className="mt-2 text-sm text-[#ff9daa]">{passwordErrors.newPassword}</p>
+                          )}
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.24em] text-white/42">
+                            Confirm New Password
+                          </span>
+                          <input
+                            type="password"
+                            value={passwordForm.confirmPassword}
+                            onChange={updatePasswordField("confirmPassword")}
+                            autoComplete="new-password"
+                            className={classNames(
+                              "w-full rounded-[22px] border bg-black/20 px-4 py-4 text-sm text-white outline-none transition",
+                              passwordErrors.confirmPassword
+                                ? "border-[#ff7a8b] focus:border-[#ff7a8b]"
+                                : "border-white/10 focus:border-[#ff3d57]/70",
+                            )}
+                          />
+                          {passwordErrors.confirmPassword && (
+                            <p className="mt-2 text-sm text-[#ff9daa]">{passwordErrors.confirmPassword}</p>
+                          )}
+                        </label>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                        <div className="text-sm text-white/48">
+                          This only updates the password for {user?.email || "your current account"}.
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={passwordSaving || !user?.email}
+                          className="inline-flex items-center justify-center rounded-full border border-[#ff667b]/35 bg-[#ff3d57] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(255,61,87,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {passwordSaving ? "Updating..." : "Update Password"}
+                        </button>
+                      </div>
+                    </form>
                   </div>
 
                   <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">

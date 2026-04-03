@@ -16,3 +16,14 @@ Expected buckets:
 
 - `artist-images`: public, 8 MB max, `image/jpeg,image/png,image/webp`
 - `artist-demos`: public, 25 MB max, `audio/mpeg`
+
+## Supabase auth reset redirect
+
+The forgot-password flow now uses Supabase Auth's built-in recovery email and returns to the app root.
+
+Add your app origins to Supabase Auth redirect URLs, for example:
+
+- `http://localhost:5173/`
+- `https://brisvo.com/`
+
+The frontend sends recovery emails back to the current app origin and completes the password reset inside the existing BrisVO auth shell.
