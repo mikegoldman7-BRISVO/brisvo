@@ -18,6 +18,13 @@ import {
   MenuItem,
   MenuItems,
 } from "@headlessui/react";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "./components/ui/carousel";
 import { supabase } from "./lib/supabase";
 import {
   AUDIO_UPLOAD_LIMIT_BYTES,
@@ -27,6 +34,7 @@ import {
   createDemoTitleFromFile,
   createStoragePath,
   deleteBucketObject,
+  deleteBucketObjectConfirmed,
   deriveStoragePathFromPublicUrl,
   formatBytes,
   listBucketFolder,
@@ -299,6 +307,10 @@ export default function Dashboard({
   const lastSignIn = formatDate(session?.user?.last_sign_in_at);
   const joinedOn = formatDate(user?.created_at);
   const profileFolder = artistProfile?.id ? `${artistProfile.id}/profile` : "";
+  const currentPhotoIndex = Math.max(
+    photoLibrary.findIndex(file => file.publicUrl === artistProfile?.photo_url),
+    0,
+  );
 
   useEffect(() => {
     setDemoDrafts(JSON.parse(liveDemosSerialized));
@@ -567,18 +579,28 @@ export default function Dashboard({
 
     if (!confirmed) return;
 
+    const previousLibrary = photoLibrary;
+    const isCurrentPhoto = artistProfile?.photo_url === file.publicUrl;
+
     setPhotoDeletingPath(file.path);
     setPhotoNotice(buildNotice("", ""));
+    setPhotoLibrary(current => current.filter(item => item.path !== file.path));
 
     try {
-      if (artistProfile?.photo_url === file.publicUrl) {
+      if (isCurrentPhoto) {
         await updateArtistRecord({ photo_url: null });
       }
 
-      await deleteBucketObject(PROFILE_IMAGE_BUCKET, file.path);
-      await refreshPhotoLibrary({ silent: true });
+      const nextLibrary = await deleteBucketObjectConfirmed({
+        bucket: PROFILE_IMAGE_BUCKET,
+        path: file.path,
+        folder: profileFolder,
+      });
+
+      setPhotoLibrary(nextLibrary);
       setPhotoNotice(buildNotice("success", "Stored image deleted."));
     } catch (error) {
+      setPhotoLibrary(previousLibrary);
       setPhotoNotice(buildNotice("error", error.message || "Unable to delete that image."));
     } finally {
       setPhotoDeletingPath("");
@@ -1012,53 +1034,81 @@ export default function Dashboard({
                       )}
                     </div>
 
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {photoLibrary.map(file => {
-                        const isCurrent = artistProfile?.photo_url === file.publicUrl;
-                        const isSwitching = photoBusyPath === file.path;
-                        const isDeleting = photoDeletingPath === file.path;
+                    {!photoLibraryLoading && photoLibrary.length > 0 && (
+                      <div className="mt-6">
+                        <Carousel
+                          key={`${photoLibrary.length}-${currentPhotoIndex}`}
+                          initialIndex={currentPhotoIndex}
+                          className="mx-auto max-w-[28rem]"
+                        >
+                          <CarouselContent>
+                            {photoLibrary.map(file => {
+                              const isCurrent = artistProfile?.photo_url === file.publicUrl;
+                              const isSwitching = photoBusyPath === file.path;
+                              const isDeleting = photoDeletingPath === file.path;
 
-                        return (
-                          <div key={file.path} className="overflow-hidden rounded-[24px] border border-white/10 bg-[#0d0d0d]">
-                            <div className="aspect-[4/5] bg-white/6">
-                              <img src={file.publicUrl} alt={file.name} className="h-full w-full object-cover" />
-                            </div>
-                            <div className="space-y-4 p-4">
-                              <div>
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="truncate text-sm font-semibold text-white">{file.name}</div>
-                                  {isCurrent && (
-                                    <span className="rounded-full border border-[#00c48c]/30 bg-[#00c48c]/12 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#b6ffe7]">
-                                      Live
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="mt-2 text-xs leading-5 text-white/48">
-                                  Added {formatDateTime(file.created_at || file.updated_at)} · {formatBytes(file.metadata?.size || 0)}
-                                </div>
+                              return (
+                                <CarouselItem key={file.path}>
+                                  <div className="overflow-hidden rounded-[28px] bg-[#0d0d0d]">
+                                    <div className="aspect-[4/5] bg-white/6">
+                                      <img
+                                        src={file.publicUrl}
+                                        alt={file.name}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    </div>
+                                    <div className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] p-5">
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0 truncate text-sm font-semibold text-white">
+                                          {file.name}
+                                        </div>
+                                        {isCurrent && (
+                                          <span className="shrink-0 rounded-full border border-[#00c48c]/30 bg-[#00c48c]/12 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#b6ffe7]">
+                                            Live
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="mt-3 text-xs leading-5 text-white/48">
+                                        Added {formatDateTime(file.created_at || file.updated_at)} · {formatBytes(file.metadata?.size || 0)}
+                                      </div>
+                                      <div className="mt-5 flex flex-wrap gap-2">
+                                        <SecondaryButton
+                                          onClick={() => handleUseStoredPhoto(file)}
+                                          disabled={isCurrent || isSwitching || isDeleting}
+                                          className={isCurrent ? "border-[#00c48c]/28 bg-[#00c48c]/10 text-[#b6ffe7]" : ""}
+                                        >
+                                          {isSwitching ? "Switching..." : isCurrent ? "Current Photo" : "Use Photo"}
+                                        </SecondaryButton>
+                                        <SecondaryButton
+                                          onClick={() => handleDeleteStoredPhoto(file)}
+                                          disabled={isSwitching || isDeleting}
+                                          className="border-[#ff7a8b]/22 bg-[#251117] text-[#ffb4bf] hover:bg-[#33151d]"
+                                        >
+                                          <TrashIcon className="size-4" />
+                                          {isDeleting ? "Deleting..." : "Delete"}
+                                        </SecondaryButton>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CarouselItem>
+                              );
+                            })}
+                          </CarouselContent>
+
+                          {photoLibrary.length > 1 && (
+                            <div className="mt-4 flex items-center justify-between gap-4">
+                              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/38">
+                                {photoLibrary.length} stored photo{photoLibrary.length > 1 ? "s" : ""}
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                <SecondaryButton
-                                  onClick={() => handleUseStoredPhoto(file)}
-                                  disabled={isCurrent || isSwitching || isDeleting}
-                                  className={isCurrent ? "border-[#00c48c]/28 bg-[#00c48c]/10 text-[#b6ffe7]" : ""}
-                                >
-                                  {isSwitching ? "Switching..." : isCurrent ? "Current Photo" : "Use Photo"}
-                                </SecondaryButton>
-                                <SecondaryButton
-                                  onClick={() => handleDeleteStoredPhoto(file)}
-                                  disabled={isSwitching || isDeleting}
-                                  className="border-[#ff7a8b]/22 bg-[#251117] text-[#ffb4bf] hover:bg-[#33151d]"
-                                >
-                                  <TrashIcon className="size-4" />
-                                  {isDeleting ? "Deleting..." : "Delete"}
-                                </SecondaryButton>
+                              <div className="flex items-center gap-3">
+                                <CarouselPrevious />
+                                <CarouselNext />
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          )}
+                        </Carousel>
+                      </div>
+                    )}
 
                     {!photoLibraryLoading && photoLibrary.length === 0 && (
                       <div className="mt-6 rounded-[24px] border border-dashed border-white/12 bg-black/18 px-5 py-10 text-center text-sm text-white/52">

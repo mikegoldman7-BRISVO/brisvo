@@ -167,6 +167,37 @@ export async function deleteBucketObject(bucket, path) {
   }
 }
 
+function sleep(delayMs) {
+  return new Promise(resolve => {
+    window.setTimeout(resolve, delayMs);
+  });
+}
+
+export async function deleteBucketObjectConfirmed({
+  bucket,
+  path,
+  folder,
+  attempts = 4,
+  delayMs = 250,
+}) {
+  await deleteBucketObject(bucket, path);
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const files = await listBucketFolder(bucket, folder);
+    const stillExists = files.some(file => file.path === path);
+
+    if (!stillExists) {
+      return files;
+    }
+
+    if (attempt < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  throw new Error("Storage delete did not persist. The file is still present in Supabase Storage.");
+}
+
 export function deriveStoragePathFromPublicUrl(bucket, publicUrl) {
   if (!publicUrl) return "";
 
