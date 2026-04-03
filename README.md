@@ -1,29 +1,75 @@
-## Supabase RLS fix
+# BrisVO Website
 
-If dashboard uploads fail with `new row violates row-level security policy`, the frontend is working but the hosted Supabase project is missing the required owner-scoped policies.
+BrisVO is a public-facing website for showcasing voice artists and helping clients discover talent, listen to demos, and make enquiries.
 
-Run the SQL in [local/supabase/media-rls.sql](/home/mladenka/Desktop/upw/brisvo/local/supabase/media-rls.sql) in the Supabase SQL editor for project `xpbiewlnmcsutmgyyqdg`.
+It also includes a private artist dashboard for approved users to maintain their own profile content.
 
-The script:
+## Features
 
-- verifies `public.artists.owner_id = auth.uid()` for the signed-in artist
-- enables RLS on `public.artists` and `public.demos`
-- recreates owner-scoped policies for artist profile updates and demo CRUD
-- recreates storage policies for `artist-images` and `artist-demos`
-- prints bucket settings so bucket names and limits can be verified
+### Public website
 
-Expected buckets:
+- Browse voice talent
+- Filter artists by category
+- Open artist profiles in a modal
+- Listen to demo reels
+- Send enquiries
+- Join the newsletter
 
-- `artist-images`: public, 8 MB max, `image/jpeg,image/png,image/webp`
-- `artist-demos`: public, 25 MB max, `audio/mpeg`
+### Private artist dashboard
 
-## Supabase auth reset redirect
+- Secure sign-in
+- Edit profile details
+- Manage profile photos
+- Manage demo tracks
+- Change password
+- Reset password by email
 
-The forgot-password flow now uses Supabase Auth's built-in recovery email and returns to the app root.
+## Tech
 
-Add your app origins to Supabase Auth redirect URLs, for example:
+- React
+- Vite
+- Supabase
 
-- `http://localhost:5173/`
-- `https://brisvo.com/`
+## Local development
 
-The frontend sends recovery emails back to the current app origin and completes the password reset inside the existing BrisVO auth shell.
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create a local environment file:
+
+```bash
+cp .env.example .env
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Run lint:
+
+```bash
+npm run lint
+```
+
+## Environment
+
+The project uses environment variables for Supabase configuration.
+
+See `.env.example` for the required keys.
+
+## Notes
+
+- This repository contains both the public website and the private dashboard UI.
+- Access to private dashboard actions depends on backend configuration and authenticated user access.
+- Sensitive project configuration should stay in environment variables and Supabase project settings, not in the repository.
