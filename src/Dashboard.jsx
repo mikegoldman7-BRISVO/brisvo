@@ -157,32 +157,10 @@ function buildNotice(tone, message) {
   return { tone, message };
 }
 
-function getUploadErrorMessage(error, assetLabel) {
-  const fallbackMessage = `${assetLabel} upload failed.`;
-  const message = error?.message || fallbackMessage;
-  const normalizedMessage = message.toLowerCase();
-
-  if (normalizedMessage.includes("row-level security policy")) {
-    return `${assetLabel} upload is blocked by Supabase RLS. Run the SQL in local/supabase/media-rls.sql and confirm the artist row owner_id matches the signed-in user.`;
+function logDashboardError(context, error) {
+  if (import.meta.env.DEV) {
+    console.error(context, error);
   }
-
-  if (normalizedMessage.includes("bucket not found")) {
-    return `${assetLabel} upload bucket is missing. Check that the Supabase bucket exists and matches the configured bucket name.`;
-  }
-
-  return message;
-}
-
-function getProfileUpdateErrorMessage(error, assetLabel) {
-  const fallbackMessage = `${assetLabel} upload succeeded, but saving it to your artist profile failed.`;
-  const message = error?.message || fallbackMessage;
-  const normalizedMessage = message.toLowerCase();
-
-  if (normalizedMessage.includes("row-level security policy")) {
-    return `${assetLabel} upload succeeded, but updating the artist row is blocked by Supabase RLS. Check public.artists policies and confirm owner_id matches the signed-in user.`;
-  }
-
-  return message;
 }
 
 function ProfileRow({ label, value }) {
@@ -332,7 +310,8 @@ export default function Dashboard({
         setPhotoNotice(current => (current.tone === "error" ? buildNotice("", "") : current));
       }
     } catch (error) {
-      setPhotoNotice(buildNotice("error", error.message || "Unable to load your stored profile images."));
+      logDashboardError("Photo library refresh failed:", error);
+      setPhotoNotice(buildNotice("error", "We couldn't load your stored profile images right now."));
 
       if (throwOnError) {
         throw error;
@@ -360,8 +339,9 @@ export default function Dashboard({
           setPhotoLibrary(files);
         }
       } catch (error) {
+        logDashboardError("Initial photo library load failed:", error);
         if (!cancelled) {
-          setPhotoNotice(buildNotice("error", error.message || "Unable to load your stored profile images."));
+          setPhotoNotice(buildNotice("error", "We couldn't load your stored profile images right now."));
         }
       } finally {
         if (!cancelled) {
@@ -428,7 +408,7 @@ export default function Dashboard({
       .single();
 
     if (error) {
-      throw new Error(error.message || "Failed to update your artist profile.");
+      throw error;
     }
 
     commitArtistProfile(data);
@@ -456,7 +436,7 @@ export default function Dashboard({
       .select("*");
 
     if (error) {
-      throw new Error(error.message || "Failed to save your demo updates.");
+      throw error;
     }
 
     const nextDemos = prepareDemoDrafts(data || preparedDrafts);
@@ -497,7 +477,8 @@ export default function Dashboard({
       setSaveMessage("Profile updated successfully.");
       setIsEditing(false);
     } catch (error) {
-      setSaveError(error.message || "Failed to save profile changes.");
+      logDashboardError("Profile save failed:", error);
+      setSaveError("We couldn't save your profile changes. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -530,8 +511,8 @@ export default function Dashboard({
         onProgress: progress => setPhotoUploadState(current => ({ ...current, progress })),
       });
     } catch (error) {
-      console.error("Profile image storage upload failed:", error);
-      setPhotoNotice(buildNotice("error", getUploadErrorMessage(error, "Profile picture")));
+      logDashboardError("Profile image storage upload failed:", error);
+      setPhotoNotice(buildNotice("error", "We couldn't upload your profile picture. Please try again."));
       setPhotoUploadState({ active: false, fileName: "", progress: 0 });
       return;
     }
@@ -539,8 +520,8 @@ export default function Dashboard({
     try {
       await updateArtistRecord({ photo_url: publicUrl });
     } catch (error) {
-      console.error("Profile image artist update failed:", error);
-      setPhotoNotice(buildNotice("error", getProfileUpdateErrorMessage(error, "Profile picture")));
+      logDashboardError("Profile image artist update failed:", error);
+      setPhotoNotice(buildNotice("error", "Your profile picture uploaded, but we couldn't attach it to your profile."));
       setPhotoUploadState({ active: false, fileName: "", progress: 0 });
       return;
     }
@@ -549,7 +530,7 @@ export default function Dashboard({
       await refreshPhotoLibrary({ silent: true, throwOnError: true });
       setPhotoNotice(buildNotice("success", "Profile picture uploaded and set live."));
     } catch (error) {
-      console.error("Profile image library refresh failed:", error);
+      logDashboardError("Profile image library refresh failed:", error);
       setPhotoNotice(buildNotice("warning", "Profile picture uploaded and set live, but refreshing the stored image library failed."));
     } finally {
       setPhotoUploadState({ active: false, fileName: "", progress: 0 });
@@ -566,7 +547,8 @@ export default function Dashboard({
       await updateArtistRecord({ photo_url: file.publicUrl });
       setPhotoNotice(buildNotice("success", "Profile picture switched successfully."));
     } catch (error) {
-      setPhotoNotice(buildNotice("error", error.message || "Unable to switch your profile picture."));
+      logDashboardError("Profile image switch failed:", error);
+      setPhotoNotice(buildNotice("error", "We couldn't switch your profile picture. Please try again."));
     } finally {
       setPhotoBusyPath("");
     }
@@ -600,8 +582,9 @@ export default function Dashboard({
       setPhotoLibrary(nextLibrary);
       setPhotoNotice(buildNotice("success", "Stored image deleted."));
     } catch (error) {
+      logDashboardError("Profile image delete failed:", error);
       setPhotoLibrary(previousLibrary);
-      setPhotoNotice(buildNotice("error", error.message || "Unable to delete that image."));
+      setPhotoNotice(buildNotice("error", "We couldn't delete that image. Please try again."));
     } finally {
       setPhotoDeletingPath("");
     }
@@ -641,7 +624,8 @@ export default function Dashboard({
       await persistDemoDraftCollection(demoDrafts);
       setDemoNotice(buildNotice("success", "Demo titles and order saved."));
     } catch (error) {
-      setDemoNotice(buildNotice("error", error.message || "Unable to save demo changes."));
+      logDashboardError("Demo save failed:", error);
+      setDemoNotice(buildNotice("error", "We couldn't save your demo changes. Please try again."));
     } finally {
       setDemoSaving(false);
     }
@@ -674,8 +658,8 @@ export default function Dashboard({
         onProgress: progress => setDemoUploadState(current => ({ ...current, progress })),
       });
     } catch (error) {
-      console.error("Demo storage upload failed:", error);
-      setDemoNotice(buildNotice("error", getUploadErrorMessage(error, "Demo")));
+      logDashboardError("Demo storage upload failed:", error);
+      setDemoNotice(buildNotice("error", "We couldn't upload your demo audio. Please try again."));
       setDemoUploadState({ active: false, fileName: "", progress: 0 });
       return;
     }
@@ -707,8 +691,8 @@ export default function Dashboard({
       setDemoDrafts(nextDemos);
       setDemoNotice(buildNotice("success", "Demo uploaded successfully."));
     } catch (error) {
-      console.error("Demo row insert failed:", error);
-      setDemoNotice(buildNotice("error", getUploadErrorMessage(error, "Demo")));
+      logDashboardError("Demo row insert failed:", error);
+      setDemoNotice(buildNotice("error", "Your audio uploaded, but we couldn't add the demo to your profile."));
     } finally {
       setDemoUploadState({ active: false, fileName: "", progress: 0 });
     }
@@ -728,7 +712,7 @@ export default function Dashboard({
       const { error } = await supabase.from("demos").delete().eq("id", demo.id);
 
       if (error) {
-        throw new Error(error.message || "Failed to delete the demo.");
+        throw error;
       }
 
       const remainingDrafts = prepareDemoDrafts(demoDrafts.filter(item => item.id !== demo.id));
@@ -741,14 +725,15 @@ export default function Dashboard({
           await deleteBucketObject(DEMO_AUDIO_BUCKET, storagePath);
           setDemoNotice(buildNotice("success", "Demo deleted."));
         } catch (storageError) {
+          logDashboardError("Demo storage cleanup failed:", storageError);
           setDemoNotice(buildNotice("warning", `${demo.name} was removed from your profile, but its storage file could not be deleted automatically.`));
-          console.error("Demo storage cleanup failed:", storageError);
         }
       } else {
         setDemoNotice(buildNotice("success", "Demo deleted."));
       }
     } catch (error) {
-      setDemoNotice(buildNotice("error", error.message || "Unable to delete the demo."));
+      logDashboardError("Demo delete failed:", error);
+      setDemoNotice(buildNotice("error", "We couldn't delete that demo. Please try again."));
     } finally {
       setDemoDeletingId(null);
     }

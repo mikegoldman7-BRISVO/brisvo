@@ -187,3 +187,31 @@ order by schemaname, tablename, policyname;
 select id, name, public, file_size_limit, allowed_mime_types
 from storage.buckets
 where id in ('artist-images', 'artist-demos');
+
+-- 8) Temporary audio upload diagnostics.
+-- If MP3 upload still fails with RLS, test storage insert in isolation:
+--
+-- drop policy if exists "artist_media_insert_own" on storage.objects;
+-- create policy "artist_media_insert_authenticated_test"
+-- on storage.objects
+-- for insert
+-- to authenticated
+-- with check (
+--   bucket_id in ('artist-demos')
+-- );
+--
+-- If the file upload starts working after that, the blocker is the
+-- storage.objects insert predicate for artist-demos.
+--
+-- If the file uploads but the dashboard then says the demo row insert is
+-- blocked by RLS, test public.demos insert in isolation:
+--
+-- drop policy if exists "demos_insert_own" on public.demos;
+-- create policy "demos_insert_authenticated_test"
+-- on public.demos
+-- for insert
+-- to authenticated
+-- with check (true);
+--
+-- If that makes demo creation work, the blocker is the public.demos insert
+-- predicate rather than the storage bucket.
