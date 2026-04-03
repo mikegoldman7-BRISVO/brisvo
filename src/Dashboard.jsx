@@ -1457,10 +1457,7 @@ export default function Dashboard({
                         </label>
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                        <div className="text-sm text-white/48">
-                          This only updates the password for {user?.email || "your current account"}.
-                        </div>
+                      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-white/10 pt-4">
                         <button
                           type="submit"
                           disabled={passwordSaving || !user?.email}
