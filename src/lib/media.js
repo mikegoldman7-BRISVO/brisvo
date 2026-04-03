@@ -1,4 +1,7 @@
 import { supabase, supabaseAnonKey, supabaseUrl } from "./supabase";
+import { normaliseWhitespace } from "./storage-paths";
+
+export { createStoragePath, deriveStoragePathFromPublicUrl } from "./storage-paths";
 
 export const PROFILE_IMAGE_BUCKET = import.meta.env.VITE_SUPABASE_PROFILE_BUCKET || "artist-images";
 export const DEMO_AUDIO_BUCKET = import.meta.env.VITE_SUPABASE_DEMO_BUCKET || "artist-demos";
@@ -8,19 +11,6 @@ export const AUDIO_UPLOAD_LIMIT_BYTES = 25 * 1024 * 1024;
 
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export const ACCEPTED_AUDIO_TYPES = ["audio/mpeg", "audio/mp3"];
-
-const STORAGE_PUBLIC_SEGMENT = "/storage/v1/object/public/";
-
-function normaliseWhitespace(value = "") {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-function sanitiseFileStem(value = "") {
-  return normaliseWhitespace(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "file";
-}
 
 function buildStorageObjectUrl(bucket, path) {
   const encodedPath = path
@@ -64,12 +54,6 @@ export function validateAudioFile(file) {
     return `Demo uploads must be ${formatBytes(AUDIO_UPLOAD_LIMIT_BYTES)} or smaller.`;
   }
   return "";
-}
-
-export function createStoragePath({ artistId, kind, fileName }) {
-  const extension = fileName.includes(".") ? fileName.split(".").pop().toLowerCase() : "bin";
-  const stem = sanitiseFileStem(fileName.replace(/\.[^.]+$/, ""));
-  return `${artistId}/${kind}/${Date.now()}-${crypto.randomUUID()}-${stem}.${extension}`;
 }
 
 export function createDemoTitleFromFile(fileName = "") {
@@ -196,15 +180,4 @@ export async function deleteBucketObjectConfirmed({
   }
 
   throw new Error("Storage delete did not persist. The file is still present in Supabase Storage.");
-}
-
-export function deriveStoragePathFromPublicUrl(bucket, publicUrl) {
-  if (!publicUrl) return "";
-
-  const marker = `${STORAGE_PUBLIC_SEGMENT}${bucket}/`;
-  const markerIndex = publicUrl.indexOf(marker);
-
-  if (markerIndex === -1) return "";
-
-  return decodeURIComponent(publicUrl.slice(markerIndex + marker.length));
 }
