@@ -890,8 +890,9 @@ function TalentModal({ talent, onClose, detailLoading = false, detailError = "" 
   const [enqLoading, setEnqLoading] = useState(false);
   const colour = talent.brand_color || "#FF3D57";
   const demos = Array.isArray(talent.demos) ? talent.demos : [];
+  const hasResolvedDemos = Array.isArray(talent.demos);
   const demoCount = Math.max(0, Number(talent.demo_count) || demos.length);
-  const showDemoSection = detailLoading || Boolean(detailError) || demoCount > 0;
+  const showDemoSection = detailLoading || Boolean(detailError) || hasResolvedDemos || demoCount > 0;
 
   useEffect(() => {
     const onKeyDown = e => {
@@ -969,7 +970,7 @@ function TalentModal({ talent, onClose, detailLoading = false, detailError = "" 
               ):demos.length>0?(
                 demos.map((demo, index)=><DemoRow key={demo.id ?? demo.file_url ?? index} demo={demo} colour={colour} activeId={activeDemo} onActivate={setActiveDemo}/>)
               ):(
-                <p className="modal-copy">No demo reels available right now.</p>
+                <p className="modal-copy">No MP3 demo reels were found for this artist yet.</p>
               )}
             </div>
           )}
