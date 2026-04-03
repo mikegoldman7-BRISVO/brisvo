@@ -149,6 +149,34 @@ function buildNotice(tone, message) {
   return { tone, message };
 }
 
+function getUploadErrorMessage(error, assetLabel) {
+  const fallbackMessage = `${assetLabel} upload failed.`;
+  const message = error?.message || fallbackMessage;
+  const normalizedMessage = message.toLowerCase();
+
+  if (normalizedMessage.includes("row-level security policy")) {
+    return `${assetLabel} upload is blocked by Supabase RLS. Run the SQL in local/supabase/media-rls.sql and confirm the artist row owner_id matches the signed-in user.`;
+  }
+
+  if (normalizedMessage.includes("bucket not found")) {
+    return `${assetLabel} upload bucket is missing. Check that the Supabase bucket exists and matches the configured bucket name.`;
+  }
+
+  return message;
+}
+
+function getProfileUpdateErrorMessage(error, assetLabel) {
+  const fallbackMessage = `${assetLabel} upload succeeded, but saving it to your artist profile failed.`;
+  const message = error?.message || fallbackMessage;
+  const normalizedMessage = message.toLowerCase();
+
+  if (normalizedMessage.includes("row-level security policy")) {
+    return `${assetLabel} upload succeeded, but updating the artist row is blocked by Supabase RLS. Check public.artists policies and confirm owner_id matches the signed-in user.`;
+  }
+
+  return message;
+}
+
 function ProfileRow({ label, value }) {
   return (
     <div className="rounded-[22px] border border-white/10 bg-black/20 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -276,7 +304,7 @@ export default function Dashboard({
     setDemoDrafts(JSON.parse(liveDemosSerialized));
   }, [artistProfile?.id, liveDemosSerialized]);
 
-  const refreshPhotoLibrary = async ({ silent = false } = {}) => {
+  const refreshPhotoLibrary = async ({ silent = false, throwOnError = false } = {}) => {
     if (!profileFolder) {
       setPhotoLibrary([]);
       return;
@@ -293,6 +321,10 @@ export default function Dashboard({
       }
     } catch (error) {
       setPhotoNotice(buildNotice("error", error.message || "Unable to load your stored profile images."));
+
+      if (throwOnError) {
+        throw error;
+      }
     } finally {
       setPhotoLibraryLoading(false);
     }
@@ -473,23 +505,40 @@ export default function Dashboard({
     }
 
     const path = createStoragePath({ artistId: artistProfile.id, kind: "profile", fileName: file.name });
+    let publicUrl = "";
 
     setPhotoNotice(buildNotice("", ""));
     setPhotoUploadState({ active: true, fileName: file.name, progress: 0 });
 
     try {
-      const publicUrl = await uploadFileWithProgress({
+      publicUrl = await uploadFileWithProgress({
         bucket: PROFILE_IMAGE_BUCKET,
         path,
         file,
         onProgress: progress => setPhotoUploadState(current => ({ ...current, progress })),
       });
+    } catch (error) {
+      console.error("Profile image storage upload failed:", error);
+      setPhotoNotice(buildNotice("error", getUploadErrorMessage(error, "Profile picture")));
+      setPhotoUploadState({ active: false, fileName: "", progress: 0 });
+      return;
+    }
 
+    try {
       await updateArtistRecord({ photo_url: publicUrl });
-      await refreshPhotoLibrary({ silent: true });
+    } catch (error) {
+      console.error("Profile image artist update failed:", error);
+      setPhotoNotice(buildNotice("error", getProfileUpdateErrorMessage(error, "Profile picture")));
+      setPhotoUploadState({ active: false, fileName: "", progress: 0 });
+      return;
+    }
+
+    try {
+      await refreshPhotoLibrary({ silent: true, throwOnError: true });
       setPhotoNotice(buildNotice("success", "Profile picture uploaded and set live."));
     } catch (error) {
-      setPhotoNotice(buildNotice("error", error.message || "Profile picture upload failed."));
+      console.error("Profile image library refresh failed:", error);
+      setPhotoNotice(buildNotice("warning", "Profile picture uploaded and set live, but refreshing the stored image library failed."));
     } finally {
       setPhotoUploadState({ active: false, fileName: "", progress: 0 });
     }
@@ -590,18 +639,26 @@ export default function Dashboard({
     }
 
     const path = createStoragePath({ artistId: artistProfile.id, kind: "demos", fileName: file.name });
+    let publicUrl = "";
 
     setDemoNotice(buildNotice("", ""));
     setDemoUploadState({ active: true, fileName: file.name, progress: 0 });
 
     try {
-      const publicUrl = await uploadFileWithProgress({
+      publicUrl = await uploadFileWithProgress({
         bucket: DEMO_AUDIO_BUCKET,
         path,
         file,
         onProgress: progress => setDemoUploadState(current => ({ ...current, progress })),
       });
+    } catch (error) {
+      console.error("Demo storage upload failed:", error);
+      setDemoNotice(buildNotice("error", getUploadErrorMessage(error, "Demo")));
+      setDemoUploadState({ active: false, fileName: "", progress: 0 });
+      return;
+    }
 
+    try {
       const { data, error } = await supabase
         .from("demos")
         .insert({
@@ -620,7 +677,7 @@ export default function Dashboard({
           // Best-effort cleanup only. The insert error remains the user-facing failure.
         }
 
-        throw new Error(error.message || "Failed to save the uploaded demo.");
+        throw error;
       }
 
       const nextDemos = prepareDemoDrafts([...demoDrafts, data]);
@@ -628,7 +685,8 @@ export default function Dashboard({
       setDemoDrafts(nextDemos);
       setDemoNotice(buildNotice("success", "Demo uploaded successfully."));
     } catch (error) {
-      setDemoNotice(buildNotice("error", error.message || "Demo upload failed."));
+      console.error("Demo row insert failed:", error);
+      setDemoNotice(buildNotice("error", getUploadErrorMessage(error, "Demo")));
     } finally {
       setDemoUploadState({ active: false, fileName: "", progress: 0 });
     }
