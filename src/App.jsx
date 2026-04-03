@@ -28,6 +28,7 @@ const sb = async (path, opts = {}) => {
 
 const CATS = ["All","Corporate","Commercial","Character","Audiobook","E-Learning","Female","Male","IVR & On Hold","Jingle","Retail"];
 const accent = "#FF3D57";
+const GENDER_FILTERS = new Set(["Male", "Female"]);
 const NAV_ITEMS = [
   { label: "Male Talent", type: "filter", value: "Male" },
   { label: "Female Talent", type: "filter", value: "Female" },
@@ -1221,8 +1222,14 @@ export default function App() {
   }, [menuOpen]);
 
   const filtered = artists.filter(t => {
-    const mc = filter==="All"||(t.categories||[]).includes(filter);
-    const ms = !search||t.name.toLowerCase().includes(search.toLowerCase());
+    const categories = Array.isArray(t.categories) ? t.categories : [];
+    const gender = typeof t.gender === "string" ? t.gender.trim().toLowerCase() : "";
+    const isGenderFilter = GENDER_FILTERS.has(filter);
+    const mc = filter === "All"
+      || (isGenderFilter
+        ? gender === filter.toLowerCase() || categories.includes(filter)
+        : categories.includes(filter));
+    const ms = !search || t.name.toLowerCase().includes(search.toLowerCase());
     return mc && ms;
   });
   const scrollToSection = id => {
