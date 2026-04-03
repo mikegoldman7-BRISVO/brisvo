@@ -101,6 +101,101 @@ function sortDemos(demos = []) {
   });
 }
 
+function formatDemoDuration(value) {
+  const seconds = Number(value);
+
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return null;
+  }
+
+  const wholeSeconds = Math.floor(seconds);
+  const minutes = Math.floor(wholeSeconds / 60);
+  const remainder = wholeSeconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
+function normaliseArtistSummary(artist = {}, demoCount = 0) {
+  return {
+    id: artist.id,
+    name: artist.name || "",
+    photo_url: artist.photo_url || "",
+    brand_color: artist.brand_color || "",
+    categories: Array.isArray(artist.categories) ? artist.categories : [],
+    gender: artist.gender || "",
+    demo_count: Math.max(0, Number(demoCount) || 0),
+  };
+}
+
+function normaliseArtistDetail(artist = {}, fallback = {}) {
+  const demos = Array.isArray(artist.demos) ? sortDemos(artist.demos) : [];
+  const fallbackCount = Math.max(0, Number(fallback.demo_count) || 0);
+  const resolvedDemoCount = Array.isArray(artist.demos) ? demos.length : fallbackCount;
+
+  return {
+    ...fallback,
+    ...artist,
+    categories: Array.isArray(artist.categories)
+      ? artist.categories
+      : Array.isArray(fallback.categories)
+        ? fallback.categories
+        : [],
+    demos,
+    demo_count: resolvedDemoCount,
+  };
+}
+
+async function fetchPublishedArtistSummaries() {
+  const { data: artistRows, error: artistError } = await supabase
+    .from("artists")
+    .select("id, name, photo_url, brand_color, categories, gender")
+    .eq("is_published", true);
+
+  if (artistError) {
+    throw artistError;
+  }
+
+  const summaries = Array.isArray(artistRows) ? artistRows : [];
+  const artistIds = summaries.map(artist => artist.id).filter(Boolean);
+  const demoCountByArtist = new Map();
+
+  if (artistIds.length > 0) {
+    const { data: demoRows, error: demoError } = await supabase
+      .from("demos")
+      .select("artist_id")
+      .in("artist_id", artistIds);
+
+    if (demoError) {
+      throw demoError;
+    }
+
+    for (const demo of demoRows || []) {
+      const nextArtistId = demo.artist_id;
+      demoCountByArtist.set(nextArtistId, (demoCountByArtist.get(nextArtistId) || 0) + 1);
+    }
+  }
+
+  return summaries.map(artist => normaliseArtistSummary(artist, demoCountByArtist.get(artist.id)));
+}
+
+async function fetchPublishedArtistDetail(artistId, fallback = {}) {
+  const { data, error } = await supabase
+    .from("artists")
+    .select("id, name, photo_url, brand_color, categories, gender, bio, demos(*)")
+    .eq("id", artistId)
+    .eq("is_published", true)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error("Artist not found.");
+  }
+
+  return normaliseArtistDetail(data, fallback);
+}
+
 function shuffleArtists(items = []) {
   const shuffled = [...items];
 
@@ -666,23 +761,43 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
   const [playing, setPlaying] = useState(false);
   const [pct, setPct] = useState(0);
   const [cur, setCur] = useState("0:00");
-  const [dur, setDur] = useState(null);
-  const fmt = s => { if(!s||isNaN(s)) return null; const m=Math.floor(s/60),sec=Math.floor(s%60); return `${m}:${sec.toString().padStart(2,"0")}`; };
+  const [dur, setDur] = useState(() => formatDemoDuration(demo.duration_secs));
+  const durationLabel = dur || formatDemoDuration(demo.duration_secs);
+
   useEffect(() => {
     if (activeId !== demo.file_url) {
       ref.current?.pause();
     }
   }, [activeId, demo.file_url]);
+
   const toggle = () => {
-    const a=ref.current; if(!a) return;
+    const a = ref.current;
+    if (!a) return;
+
+    if (playing) {
+      a.pause();
+      setPlaying(false);
+      return;
+    }
+
     onActivate(demo.file_url);
-    if(playing){a.pause();setPlaying(false);}else{a.play().catch(()=>{});setPlaying(true);}
+    const playPromise = a.play();
+
+    if (playPromise && typeof playPromise.then === "function") {
+      playPromise
+        .then(() => setPlaying(true))
+        .catch(() => setPlaying(false));
+      return;
+    }
+
+    setPlaying(true);
   };
+
   return (
     <div style={{border:`2px solid ${colour}33`,borderRadius:10,marginBottom:8,overflow:"hidden",background:"#fff"}}>
-      <audio ref={ref} src={demo.file_url}
-        onTimeUpdate={e=>{const a=e.target;setPct(a.duration?(a.currentTime/a.duration)*100:0);setCur(fmt(a.currentTime)||"0:00");}}
-        onLoadedMetadata={e=>setDur(fmt(e.target.duration))}
+      <audio ref={ref} src={demo.file_url} preload="none"
+        onTimeUpdate={e=>{const a=e.target;setPct(a.duration?(a.currentTime/a.duration)*100:0);setCur(formatDemoDuration(a.currentTime)||"0:00");}}
+        onLoadedMetadata={e=>setDur(formatDemoDuration(e.target.duration) || formatDemoDuration(demo.duration_secs))}
         onPause={()=>setPlaying(false)}
         onEnded={()=>{setPlaying(false);setPct(0);setCur("0:00");}}
       />
@@ -693,7 +808,7 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
         </button>
         <div style={{flex:1}}>
           <div style={{fontSize:13,fontWeight:700,color:"#111"}}>{demo.name}</div>
-          <div style={{fontSize:11,color:"#888",marginTop:2}}>{playing?`${cur}${dur?` / ${dur}`:""}`:dur||"click to load"}</div>
+          <div style={{fontSize:11,color:"#888",marginTop:2}}>{playing?`${cur}${durationLabel?` / ${durationLabel}`:""}`:durationLabel||"click to load"}</div>
         </div>
       </div>
       {(playing||pct>0)&&(
@@ -702,7 +817,7 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
             onClick={e=>{const a=ref.current;if(!a?.duration)return;const r=e.currentTarget.getBoundingClientRect();a.currentTime=((e.clientX-r.left)/r.width)*a.duration;}}>
             <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${pct}%`,background:colour,borderRadius:3,transition:"width .1s"}}/>
           </div>
-          <div style={{fontSize:10,color:"#aaa",marginTop:4}}>{cur}{dur?` / ${dur}`:""}</div>
+          <div style={{fontSize:10,color:"#aaa",marginTop:4}}>{cur}{durationLabel?` / ${durationLabel}`:""}</div>
         </div>
       )}
     </div>
@@ -713,6 +828,7 @@ function DemoRow({ demo, colour, activeId, onActivate }) {
 function TalentCard({ talent, onClick }) {
   const [imgErr, setImgErr] = useState(false);
   const colour = talent.brand_color || "#FF3D57";
+  const demoCount = Math.max(0, Number(talent.demo_count) || 0);
   return (
     <button
       type="button"
@@ -731,9 +847,9 @@ function TalentCard({ talent, onClick }) {
       {!imgErr&&<div className="talent-card__tint"/>}
       <div className="talent-card__gradient"/>
       <div className="talent-card__accent"/>
-      {talent.demos?.length>0&&(
+      {demoCount>0&&(
         <div className="talent-card__badge">
-          {talent.demos.length}🎙
+          {demoCount}🎙
         </div>
       )}
       <div className="talent-card__meta">
@@ -749,13 +865,16 @@ function TalentCard({ talent, onClick }) {
 }
 
 // ── TALENT MODAL ──────────────────────────────────────────────
-function TalentModal({ talent, onClose }) {
+function TalentModal({ talent, onClose, detailLoading = false, detailError = "" }) {
   const [activeDemo, setActiveDemo] = useState(null);
   const [imgErr, setImgErr] = useState(false);
   const [enqForm, setEnqForm] = useState({name:"",email:"",company:"",project_type:"",message:""});
   const [enqSent, setEnqSent] = useState(false);
   const [enqLoading, setEnqLoading] = useState(false);
   const colour = talent.brand_color || "#FF3D57";
+  const demos = Array.isArray(talent.demos) ? talent.demos : [];
+  const demoCount = Math.max(0, Number(talent.demo_count) || demos.length);
+  const showDemoSection = detailLoading || Boolean(detailError) || demoCount > 0;
 
   useEffect(() => {
     const onKeyDown = e => {
@@ -804,9 +923,9 @@ function TalentModal({ talent, onClose }) {
             </div>
             <h2 className="modal-title">{talent.name}</h2>
             <div className="modal-subtitle">{talent.gender} · Australian Voice Artist</div>
-            {talent.demos?.length>0&&(
+            {demoCount>0&&(
               <div className="modal-demo-pill">
-                🎙 {talent.demos.length} demo reel{talent.demos.length>1?"s":""}
+                🎙 {demoCount} demo reel{demoCount>1?"s":""}
               </div>
             )}
           </div>
@@ -818,10 +937,23 @@ function TalentModal({ talent, onClose }) {
               <p className="modal-copy">{talent.bio}</p>
             </div>
           )}
-          {talent.demos?.length>0&&(
+          {showDemoSection&&(
             <div className="modal-section">
               <div className="section-label" style={{color: colour}}>Demo Reels</div>
-              {talent.demos.map((d,i)=><DemoRow key={i} demo={d} colour={colour} activeId={activeDemo} onActivate={setActiveDemo}/>)}
+              {detailLoading?(
+                <p className="modal-copy">Loading demo reels…</p>
+              ):detailError?(
+                <div
+                  className="rounded-[18px] border px-4 py-3 text-sm"
+                  style={{borderColor:`${colour}33`,background:`${colour}12`,color:"#f8d7dc"}}
+                >
+                  {detailError}
+                </div>
+              ):demos.length>0?(
+                demos.map((demo, index)=><DemoRow key={demo.id ?? demo.file_url ?? index} demo={demo} colour={colour} activeId={activeDemo} onActivate={setActiveDemo}/>)
+              ):(
+                <p className="modal-copy">No demo reels available right now.</p>
+              )}
             </div>
           )}
           <div className="modal-form-section">
@@ -948,6 +1080,9 @@ export default function App() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [selectedDetailLoading, setSelectedDetailLoading] = useState(false);
+  const [selectedDetailError, setSelectedDetailError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [view, setView] = useState(() => (detectRecoveryModeFromLocation() ? "reset-password" : "home"));
   const [session, setSession] = useState(null);
@@ -957,6 +1092,24 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [resetRecoveryReady, setResetRecoveryReady] = useState(() => detectRecoveryModeFromLocation());
   const [authEmailPrefill, setAuthEmailPrefill] = useState("");
+  const artistDetailCacheRef = useRef(new Map());
+
+  const closeSelectedArtist = () => {
+    setSelected(null);
+    setSelectedDetail(null);
+    setSelectedDetailLoading(false);
+    setSelectedDetailError("");
+  };
+
+  const handleArtistSelect = artist => {
+    const cachedDetail = artistDetailCacheRef.current.get(artist.id);
+
+    setSelected(artist);
+    setSelectedDetail(cachedDetail ? normaliseArtistDetail(cachedDetail, artist) : null);
+    setSelectedDetailLoading(!cachedDetail);
+    setSelectedDetailError("");
+    setMenuOpen(false);
+  };
 
   // Session setup: read the initial Supabase session on mount.
   useEffect(() => {
@@ -1001,6 +1154,9 @@ export default function App() {
       if (!nextSession) {
         setView("home");
         setSelected(null);
+        setSelectedDetail(null);
+        setSelectedDetailLoading(false);
+        setSelectedDetailError("");
         setMenuOpen(false);
       }
     });
@@ -1011,36 +1167,36 @@ export default function App() {
     };
   }, []);
 
-  const fetchArtistsData = async () => {
-    const data = await sb("artists?select=*,demos(*)&order=sort_order.asc&is_published=eq.true");
-    data.forEach(a => {
-      if (a.demos) a.demos = sortDemos(a.demos);
-    });
-    return data;
-  };
-
   const handleArtistProfileChange = nextProfile => {
     if (!nextProfile) {
       setArtistProfile(null);
       return;
     }
 
-    const normalisedProfile = {
-      ...nextProfile,
-      demos: Array.isArray(nextProfile.demos) ? sortDemos(nextProfile.demos) : [],
-    };
+    const summaryProfile = normaliseArtistSummary(nextProfile, nextProfile.demos?.length);
+    const normalisedProfile = normaliseArtistDetail(nextProfile, summaryProfile);
 
     setArtistProfile(normalisedProfile);
+    artistDetailCacheRef.current.set(normalisedProfile.id, normalisedProfile);
     setArtists(current =>
       current.map(artist =>
         artist.id === normalisedProfile.id
           ? {
               ...artist,
-              ...normalisedProfile,
+              ...summaryProfile,
             }
           : artist,
       ),
     );
+    setSelected(current => (
+      current?.id === normalisedProfile.id
+        ? {
+            ...current,
+            ...summaryProfile,
+          }
+        : current
+    ));
+    setSelectedDetail(current => (current?.id === normalisedProfile.id ? normalisedProfile : current));
   };
 
   const handleLogin = async (email, password) => {
@@ -1113,7 +1269,7 @@ export default function App() {
     setArtistError("");
     setArtistLoading(false);
     setView("home");
-    setSelected(null);
+    closeSelectedArtist();
     setMenuOpen(false);
     setResetRecoveryReady(false);
     clearRecoveryParamsFromLocation();
@@ -1147,7 +1303,7 @@ export default function App() {
 
     const initArtists = async () => {
       try {
-        const data = await fetchArtistsData();
+        const data = await fetchPublishedArtistSummaries();
         if (!cancelled) setArtists(shuffleArtists(data));
       } catch(e) {
         if (!cancelled) console.error("Failed to load artists:", e);
@@ -1166,7 +1322,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadArtistProfile = async () => {
+      const loadArtistProfile = async () => {
       if (!session?.user?.id) {
         setArtistProfile(null);
         setArtistError("");
@@ -1212,6 +1368,65 @@ export default function App() {
       cancelled = true;
     };
   }, [session?.user?.id]);
+  useEffect(() => {
+    if (!selected?.id) {
+      setSelectedDetail(null);
+      setSelectedDetailLoading(false);
+      setSelectedDetailError("");
+      return;
+    }
+
+    const cachedDetail = artistDetailCacheRef.current.get(selected.id);
+
+    if (cachedDetail) {
+      setSelectedDetail(normaliseArtistDetail(cachedDetail, selected));
+      setSelectedDetailLoading(false);
+      setSelectedDetailError("");
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSelectedArtistDetail = async () => {
+      setSelectedDetail(null);
+      setSelectedDetailLoading(true);
+      setSelectedDetailError("");
+
+      try {
+        const detail = await fetchPublishedArtistDetail(selected.id, selected);
+
+        if (cancelled) return;
+
+        artistDetailCacheRef.current.set(selected.id, detail);
+        setSelectedDetail(detail);
+        setArtists(current =>
+          current.map(artist =>
+            artist.id === detail.id
+              ? {
+                  ...artist,
+                  ...normaliseArtistSummary(detail, detail.demo_count),
+                }
+              : artist,
+          ),
+        );
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load artist detail:", error);
+          setSelectedDetailError("We couldn't load this artist's demo reels right now.");
+        }
+      } finally {
+        if (!cancelled) {
+          setSelectedDetailLoading(false);
+        }
+      }
+    };
+
+    loadSelectedArtistDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selected]);
   useEffect(() => {
     document.body.classList.toggle("body-lock", view==="home" && (menuOpen || Boolean(selected)));
     return () => document.body.classList.remove("body-lock");
@@ -1259,7 +1474,7 @@ export default function App() {
   const handleViewSelect = nextView => {
     setView(nextView);
     setMenuOpen(false);
-    setSelected(null);
+    closeSelectedArtist();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1477,7 +1692,7 @@ export default function App() {
           ):(
             <div className="talent-grid">
               {filtered.map(t=>(
-                <TalentCard key={t.id} talent={t} onClick={()=>setSelected(t)}/>
+                <TalentCard key={t.id} talent={t} onClick={()=>handleArtistSelect(t)}/>
               ))}
             </div>
           )}
@@ -1554,7 +1769,14 @@ export default function App() {
         </div>
       </footer>
 
-      {selected&&<TalentModal talent={selected} onClose={()=>setSelected(null)}/>}
+      {selected&&(
+        <TalentModal
+          talent={selectedDetail || selected}
+          onClose={closeSelectedArtist}
+          detailLoading={selectedDetailLoading}
+          detailError={selectedDetailError}
+        />
+      )}
     </div>
   );
 }

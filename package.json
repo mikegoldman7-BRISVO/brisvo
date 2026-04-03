@@ -6,6 +6,7 @@
   "scripts": {
     "backfill:artist-photos": "node ./scripts/backfill-artist-photos.mjs",
     "dev": "vite",
+    "import:local-demos": "node ./scripts/import-local-demos.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -21,6 +22,7 @@
     "clsx": "^2.1.1",
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^1.7.0",
+    "music-metadata": "^11.12.3",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

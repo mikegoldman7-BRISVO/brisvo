@@ -27,6 +27,7 @@ import {
   CarouselPrevious,
 } from "./components/ui/carousel";
 import { supabase } from "./lib/supabase";
+import { buildDemoWritePayload } from "./lib/demo-records";
 import {
   AUDIO_UPLOAD_LIMIT_BYTES,
   DEMO_AUDIO_BUCKET,
@@ -38,6 +39,7 @@ import {
   deleteBucketObjectConfirmed,
   deriveStoragePathFromPublicUrl,
   formatBytes,
+  getAudioDurationSeconds,
   listBucketFolder,
   uploadFileWithProgress,
   validateAudioFile,
@@ -462,11 +464,15 @@ export default function Dashboard({
 
   const persistDemoDraftCollection = async nextDrafts => {
     const preparedDrafts = prepareDemoDrafts(nextDrafts).map((demo, index) => ({
-      id: demo.id,
-      artist_id: artistProfile.id,
-      file_url: demo.file_url,
-      name: normaliseText(demo.name || "") || createDemoTitleFromFile(getFileNameFromUrl(demo.file_url)),
-      sort_order: index,
+      ...buildDemoWritePayload({
+        artistId: artistProfile.id,
+        durationSecs: demo.duration_secs,
+        fileSizeBytes: demo.file_size_bytes,
+        fileUrl: demo.file_url,
+        id: demo.id,
+        name: normaliseText(demo.name || "") || createDemoTitleFromFile(getFileNameFromUrl(demo.file_url)),
+        sortOrder: index,
+      }),
     }));
 
     if (preparedDrafts.length === 0) {
@@ -770,10 +776,20 @@ export default function Dashboard({
     }
 
     const path = createStoragePath({ artistId: artistProfile.id, kind: "demos", fileName: file.name });
+    let durationSecs = 0;
     let publicUrl = "";
 
     setDemoNotice(buildNotice("", ""));
     setDemoUploadState({ active: true, fileName: file.name, progress: 0 });
+
+    try {
+      durationSecs = await getAudioDurationSeconds(file);
+    } catch (error) {
+      logDashboardError("Demo duration read failed:", error);
+      setDemoNotice(buildNotice("error", "We couldn't read your MP3 metadata. Please try a different file."));
+      setDemoUploadState({ active: false, fileName: "", progress: 0 });
+      return;
+    }
 
     try {
       publicUrl = await uploadFileWithProgress({
@@ -790,14 +806,18 @@ export default function Dashboard({
     }
 
     try {
+      const payload = buildDemoWritePayload({
+        artistId: artistProfile.id,
+        durationSecs,
+        fileSizeBytes: file.size,
+        fileUrl: publicUrl,
+        name: createDemoTitleFromFile(file.name),
+        sortOrder: demoDrafts.length,
+      });
+
       const { data, error } = await supabase
         .from("demos")
-        .insert({
-          artist_id: artistProfile.id,
-          file_url: publicUrl,
-          name: createDemoTitleFromFile(file.name),
-          sort_order: demoDrafts.length,
-        })
+        .insert(payload)
         .select("*")
         .single();
 

@@ -1,4 +1,5 @@
 import { supabase, supabaseAnonKey, supabaseUrl } from "./supabase";
+import { roundDemoDurationSeconds } from "./demo-records";
 import { getDisplayFileName, normaliseWhitespace } from "./storage-paths";
 
 export { createStoragePath, deriveStoragePathFromPublicUrl, getDisplayFileName } from "./storage-paths";
@@ -59,6 +60,29 @@ export function validateAudioFile(file) {
 export function createDemoTitleFromFile(fileName = "") {
   const stem = fileName.replace(/\.[^.]+$/, "");
   return normaliseWhitespace(stem.replace(/[-_]+/g, " ")) || "Untitled demo";
+}
+
+export async function getAudioDurationSeconds(file) {
+  if (!file) {
+    throw new Error("Select an MP3 file to measure.");
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const duration = await new Promise((resolve, reject) => {
+      const audio = document.createElement("audio");
+
+      audio.preload = "metadata";
+      audio.onloadedmetadata = () => resolve(audio.duration);
+      audio.onerror = () => reject(new Error("Unable to read demo audio duration."));
+      audio.src = objectUrl;
+    });
+
+    return roundDemoDurationSeconds(duration);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export async function uploadFileWithProgress({ bucket, path, file, onProgress }) {
