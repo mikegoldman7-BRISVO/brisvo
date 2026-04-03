@@ -17,7 +17,16 @@ function useCarousel() {
 
 function Carousel({ className, children, initialIndex = 0, ...props }) {
   const [index, setIndex] = React.useState(initialIndex);
-  const slideCount = React.Children.toArray(children).length;
+  const slideCount = React.useMemo(() => {
+    const childArray = React.Children.toArray(children);
+    const contentChild = childArray.find(child => React.isValidElement(child) && child.type === CarouselContent);
+
+    if (!contentChild || !React.isValidElement(contentChild)) {
+      return 0;
+    }
+
+    return React.Children.toArray(contentChild.props.children).length;
+  }, [children]);
 
   React.useEffect(() => {
     if (slideCount === 0) {

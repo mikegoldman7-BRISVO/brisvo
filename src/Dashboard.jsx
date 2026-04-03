@@ -113,6 +113,11 @@ function normaliseText(value = "") {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function getPhotoUploadTimestamp(file) {
+  const parsed = Date.parse(file?.created_at || file?.updated_at || "");
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+}
+
 function sortDemos(demos = []) {
   return [...demos].sort((left, right) => {
     const sortOrderDelta = (left.sort_order ?? 0) - (right.sort_order ?? 0);
@@ -283,6 +288,7 @@ export default function Dashboard({
 
   const artistName = artistProfile?.name || user?.user_metadata?.full_name || user?.email || "BrisVO Artist";
   const artistImage = artistProfile?.photo_url || null;
+  const artistBio = normaliseText(artistProfile?.bio || "");
   const initials = getInitials(artistName);
   const categories = Array.isArray(artistProfile?.categories)
     ? artistProfile.categories
@@ -295,8 +301,26 @@ export default function Dashboard({
   const lastSignIn = formatDate(session?.user?.last_sign_in_at);
   const joinedOn = formatDate(user?.created_at);
   const profileFolder = artistProfile?.id ? `${artistProfile.id}/profile` : "";
+  const livePhotoItem = artistImage
+    ? photoLibrary.find(file => file.publicUrl === artistImage) || {
+        created_at: null,
+        displayName: getFileNameFromUrl(artistImage),
+        isManagedLibraryItem: false,
+        metadata: null,
+        name: getFileNameFromUrl(artistImage),
+        path: "",
+        publicUrl: artistImage,
+        updated_at: null,
+      }
+    : null;
+  const orderedPhotoLibrary = [...photoLibrary].sort(
+    (left, right) => getPhotoUploadTimestamp(left) - getPhotoUploadTimestamp(right),
+  );
+  const photoCarouselItems = livePhotoItem
+    ? [livePhotoItem, ...orderedPhotoLibrary.filter(file => file.publicUrl !== livePhotoItem.publicUrl)]
+    : orderedPhotoLibrary;
   const currentPhotoIndex = Math.max(
-    photoLibrary.findIndex(file => file.publicUrl === artistProfile?.photo_url),
+    photoCarouselItems.findIndex(file => file.publicUrl === artistProfile?.photo_url),
     0,
   );
 
@@ -1121,21 +1145,22 @@ export default function Dashboard({
                       )}
                     </div>
 
-                    {!photoLibraryLoading && photoLibrary.length > 0 && (
+                    {!photoLibraryLoading && photoCarouselItems.length > 0 && (
                       <div className="mt-6">
                         <Carousel
-                          key={`${photoLibrary.length}-${currentPhotoIndex}`}
+                          key={`${photoCarouselItems.length}-${artistProfile?.photo_url || "no-photo"}`}
                           initialIndex={currentPhotoIndex}
                           className="mx-auto max-w-[28rem]"
                         >
                           <CarouselContent>
-                            {photoLibrary.map(file => {
+                            {photoCarouselItems.map(file => {
                               const isCurrent = artistProfile?.photo_url === file.publicUrl;
+                              const canDelete = file.isManagedLibraryItem !== false;
                               const isSwitching = photoBusyPath === file.path;
                               const isDeleting = photoDeletingPath === file.path;
 
                               return (
-                                <CarouselItem key={file.path}>
+                                <CarouselItem key={file.path || `current-photo-${file.publicUrl}`}>
                                   <div className="overflow-hidden rounded-[28px] bg-[#0d0d0d]">
                                     <div className="aspect-[4/5] bg-white/6">
                                       <img
@@ -1156,7 +1181,9 @@ export default function Dashboard({
                                         )}
                                       </div>
                                       <div className="mt-3 text-xs leading-5 text-white/48">
-                                        Added {formatDateTime(file.created_at || file.updated_at)} · {formatBytes(file.metadata?.size || 0)}
+                                        {canDelete
+                                          ? `Added ${formatDateTime(file.created_at || file.updated_at)} · ${formatBytes(file.metadata?.size || 0)}`
+                                          : "Currently live on your profile"}
                                       </div>
                                       <div className="mt-5 flex flex-wrap gap-2">
                                         <SecondaryButton
@@ -1168,11 +1195,11 @@ export default function Dashboard({
                                         </SecondaryButton>
                                         <SecondaryButton
                                           onClick={() => handleDeleteStoredPhoto(file)}
-                                          disabled={isSwitching || isDeleting}
+                                          disabled={!canDelete || isSwitching || isDeleting}
                                           className="border-[#ff7a8b]/22 bg-[#251117] text-[#ffb4bf] hover:bg-[#33151d]"
                                         >
                                           <TrashIcon className="size-4" />
-                                          {isDeleting ? "Deleting..." : "Delete"}
+                                          {!canDelete ? "Managed Elsewhere" : isDeleting ? "Deleting..." : "Delete"}
                                         </SecondaryButton>
                                       </div>
                                     </div>
@@ -1182,7 +1209,7 @@ export default function Dashboard({
                             })}
                           </CarouselContent>
 
-                          {photoLibrary.length > 1 && (
+                          {photoCarouselItems.length > 1 && (
                             <div className="mt-4 flex items-center justify-between gap-4">
                               <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/38">
                                 {photoLibrary.length} stored photo{photoLibrary.length > 1 ? "s" : ""}
@@ -1366,7 +1393,11 @@ export default function Dashboard({
                       <p className="mt-4 text-sm leading-7 text-white/76">
                         {artistLoading
                           ? "Loading your artist profile..."
-                          : artistError || artistProfile?.bio || "Your profile will appear here once your BrisVO artist record is linked to this account."}
+                          : artistError ||
+                            artistBio ||
+                            (artistProfile?.id
+                              ? "No bio has been added to this artist profile yet."
+                              : "Your profile will appear here once your BrisVO artist record is linked to this account.")}
                       </p>
                     )}
                   </div>
