@@ -659,6 +659,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   background: rgba(0, 0, 0, 0.88);
   backdrop-filter: blur(8px);
 }
@@ -1316,10 +1317,13 @@
 
   .modal-overlay {
     padding: 12px;
+    align-items: flex-start;
   }
 
   .modal-panel {
-    max-height: calc(100vh - 24px);
+    width: 100%;
+    max-height: none;
+    margin: auto 0;
     border-radius: 18px;
   }
 
