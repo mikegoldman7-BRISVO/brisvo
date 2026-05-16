@@ -105,22 +105,6 @@ function createArtistSlug(name = "", userId = "") {
   return suffix ? `${base}-${suffix}` : base;
 }
 
-function getRegistrationErrorMessage(error) {
-  const code = typeof error?.code === "string" ? error.code.toLowerCase() : "";
-  const message = typeof error?.message === "string" ? error.message.toLowerCase() : "";
-
-  if (
-    code === "user_already_exists"
-    || message.includes("already registered")
-    || message.includes("already been registered")
-    || message.includes("already exists")
-  ) {
-    return "An account already exists for this email. Sign in instead, or reset your password if you've forgotten it.";
-  }
-
-  return "We couldn't create your account right now. Please try again.";
-}
-
 function AuthStatusMessage({ status }) {
   if (!status?.message) return null;
 
@@ -429,7 +413,7 @@ function AuthScene({ eyebrow, title, copy, panelTitle, panelCopy, onBack, backLa
   );
 }
 
-function ArtistLoginView({ onBack, onSwitch, onForgotPassword, onLogin, loginPending }) {
+function ArtistLoginView({ onBack, onForgotPassword, onLogin, loginPending }) {
   const [form, setForm] = useState({ email:"", password:"" });
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(buildAuthStatus("", ""));
@@ -521,16 +505,9 @@ function ArtistLoginView({ onBack, onSwitch, onForgotPassword, onLogin, loginPen
         <AuthStatusMessage status={status} />
       </div>
 
-      <div className="mt-6 border-t border-white/10 pt-5 text-sm text-white/56">
-        Need access to BrisVO artist tools?{" "}
-        <button
-          type="button"
-          onClick={onSwitch}
-          className="cursor-pointer bg-transparent p-0 font-semibold text-[#ff93a4] transition hover:text-white"
-        >
-          Create one here
-        </button>
-      </div>
+      <p className="mt-6 border-t border-white/10 pt-5 text-sm leading-6 text-white/56">
+        Artist access is managed by BrisVO.
+      </p>
     </AuthScene>
   );
 }
@@ -732,137 +709,6 @@ function ArtistResetPasswordView({ onBackToLogin, onRequestNewLink, onSubmit, pe
           className="cursor-pointer bg-transparent p-0 font-semibold text-[#ff93a4] transition hover:text-white"
         >
           {completed ? "Back to login" : "Request another reset email"}
-        </button>
-      </div>
-    </AuthScene>
-  );
-}
-
-function ArtistRegisterView({ onBack, onSwitch, onRegister, pending }) {
-  const [form, setForm] = useState({ fullName:"", email:"", password:"", confirmPassword:"" });
-  const [errors, setErrors] = useState({});
-  const [status, setStatus] = useState(buildAuthStatus("", ""));
-
-  const updateField = key => e => {
-    const value = e.target.value;
-    setForm(current => ({ ...current, [key]: value }));
-    setErrors(current => (current[key] ? { ...current, [key]: "" } : current));
-    setStatus(buildAuthStatus("", ""));
-  };
-
-  const handleSubmit = async e => {
-    e.preventDefault();
-    const nextErrors = {};
-    const fullName = form.fullName.trim();
-    const email = form.email.trim();
-
-    if (!fullName) nextErrors.fullName = "Full name is required.";
-    if (!email) nextErrors.email = "Email is required.";
-    else if (!EMAIL_RE.test(email)) nextErrors.email = "Enter a valid email address.";
-
-    if (!form.password) nextErrors.password = "Password is required.";
-    else if (form.password.length < MIN_PASSWORD_LENGTH) nextErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-
-    if (!form.confirmPassword) nextErrors.confirmPassword = "Please confirm your password.";
-    else if (form.confirmPassword !== form.password) nextErrors.confirmPassword = "Passwords do not match.";
-
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    setStatus(buildAuthStatus("success", "Creating your account…"));
-
-    const { error } = await onRegister(fullName, email, form.password);
-
-    if (error) {
-      setStatus(buildAuthStatus("error", error.message || "We couldn't create your account right now. Please try again."));
-      return;
-    }
-
-    setForm(current => ({
-      ...current,
-      password: "",
-      confirmPassword: "",
-    }));
-    setErrors({});
-    setStatus(buildAuthStatus("success", "Check your email to confirm your account before signing in."));
-  };
-
-  return (
-      <AuthScene
-      eyebrow="Artist Sign Up"
-      title="Join Queensland's voice collective."
-      copy="Create your BrisVO artist account below. We'll send you a confirmation email first, then you'll be able to sign in and complete your private profile."
-      panelTitle="Artist Registration"
-      panelCopy="Live sign-up is now available. Register with your email, confirm your inbox, and we'll prepare your private artist dashboard on first sign-in."
-      onBack={onBack}
-    >
-      <form onSubmit={handleSubmit} noValidate className="space-y-5">
-        <AuthField
-          id="register-full-name"
-          label="Full Name"
-          value={form.fullName}
-          onChange={updateField("fullName")}
-          autoComplete="name"
-          placeholder="Your full name"
-          error={errors.fullName}
-        />
-        <AuthField
-          id="register-email"
-          label="Email"
-          type="email"
-          value={form.email}
-          onChange={updateField("email")}
-          autoComplete="email"
-          placeholder="artist@brisvo.com.au"
-          error={errors.email}
-        />
-        <AuthField
-          id="register-password"
-          label="Password"
-          type="password"
-          value={form.password}
-          onChange={updateField("password")}
-          autoComplete="new-password"
-          placeholder={`Minimum ${MIN_PASSWORD_LENGTH} characters`}
-          error={errors.password}
-        />
-        <AuthField
-          id="register-confirm-password"
-          label="Confirm Password"
-          type="password"
-          value={form.confirmPassword}
-          onChange={updateField("confirmPassword")}
-          autoComplete="new-password"
-          placeholder="Re-enter your password"
-          error={errors.confirmPassword}
-        />
-
-        <p className="text-sm leading-6 text-white/52">
-          For BrisVO artists and invited talent only.
-        </p>
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="site-button site-button--primary site-button--full"
-          style={{ "--button-color": accent, "--button-shadow": `${accent}44`, opacity: pending ? 0.7 : 1 }}
-        >
-          {pending ? "Creating Account…" : "Create Account"}
-        </button>
-      </form>
-
-      <div aria-live="polite" className="mt-5 min-h-6">
-        <AuthStatusMessage status={status} />
-      </div>
-
-      <div className="mt-6 border-t border-white/10 pt-5 text-sm text-white/56">
-        Already part of the collective?{" "}
-        <button
-          type="button"
-          onClick={onSwitch}
-          className="cursor-pointer bg-transparent p-0 font-semibold text-[#ff93a4] transition hover:text-white"
-        >
-          Go to login
         </button>
       </div>
     </AuthScene>
@@ -1364,41 +1210,6 @@ export default function App() {
     }
   };
 
-  const handleRegister = async (fullName, email, password) => {
-    setAuthLoading(true);
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-          emailRedirectTo: getAuthRedirectUrl(),
-        },
-      });
-
-      if (error) {
-        logAuthError("Registration error:", error);
-        return {
-          data,
-          error: {
-            ...error,
-            message: getRegistrationErrorMessage(error),
-          },
-        };
-      }
-
-      if (data?.session) {
-        setSession(data.session);
-        setView("home");
-      }
-
-      return { data, error: null };
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
   const handleForgotPassword = async email => {
     setAuthLoading(true);
 
@@ -1678,7 +1489,6 @@ export default function App() {
     return (
       <ArtistLoginView
         onBack={()=>handleViewSelect("home")}
-        onSwitch={()=>handleViewSelect("register")}
         onForgotPassword={email => {
           setAuthEmailPrefill(email);
           handleViewSelect("forgot-password");
@@ -1708,17 +1518,6 @@ export default function App() {
         onSubmit={handleResetPassword}
         pending={authLoading}
         recoveryReady={resetRecoveryReady || Boolean(session)}
-      />
-    );
-  }
-
-  if (view==="register") {
-    return (
-      <ArtistRegisterView
-        onBack={()=>handleViewSelect("home")}
-        onSwitch={()=>handleViewSelect("login")}
-        onRegister={handleRegister}
-        pending={authLoading}
       />
     );
   }
@@ -1754,14 +1553,6 @@ export default function App() {
               className="site-button site-button--ghost site-button--compact site-nav__login"
             >
               Artist Login
-            </button>
-            <button
-              type="button"
-              onClick={()=>handleViewSelect("register")}
-              className="site-button site-button--primary site-button--compact"
-              style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
-            >
-              Join BrisVO
             </button>
             <button
               type="button"
@@ -1802,14 +1593,6 @@ export default function App() {
                 className="site-button site-button--ghost site-button--compact mobile-nav__login"
               >
                 Artist Login
-              </button>
-              <button
-                type="button"
-                onClick={()=>handleViewSelect("register")}
-                className="site-button site-button--primary site-button--compact"
-                style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
-              >
-                Join BrisVO
               </button>
             </div>
           </div>
@@ -1913,19 +1696,6 @@ export default function App() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-        <div className="about-section__cta">
-          <div className="content-shell about-section__cta-inner">
-            <p className="about-section__cta-copy">Ready to be heard? Join Queensland's finest voice collective.</p>
-            <button
-              type="button"
-              onClick={()=>handleViewSelect("register")}
-              className="site-button site-button--primary"
-              style={{ "--button-color": accent, "--button-shadow": `${accent}44` }}
-            >
-              Join as an Artist
-            </button>
           </div>
         </div>
       </section>
