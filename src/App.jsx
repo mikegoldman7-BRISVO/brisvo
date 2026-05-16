@@ -56,6 +56,8 @@ const NAV_ITEMS = [
   { label: "About", type: "section", value: "about" },
   { label: "Studio Links", type: "section", value: "footer" },
 ];
+const RATE_CARD_DOWNLOAD = "/downloads/Voice-over-rate-card_v9-July.pdf";
+const RATE_CARD_FILENAME = "Voice-over-rate-card_v9-July.pdf";
 const FOOTER_LINKS = ["Male Talent","Female Talent","Have You Heard?","About BrisVO","Studio Links","Rate Card","Disclaimer","Terms"];
 const OFFER_ITEMS = [
   ["🎙","Find talent fast","Browse professional voices — filter by style, gender, accent"],
@@ -1555,6 +1557,9 @@ export default function App() {
                   {item.label}
                 </button>
               ))}
+              <a className="nav-link" href={RATE_CARD_DOWNLOAD} download={RATE_CARD_FILENAME}>
+                Rate Card
+              </a>
             </div>
           </div>
           <div className="site-nav__actions">
@@ -1597,6 +1602,14 @@ export default function App() {
                 {item.label}
               </button>
             ))}
+            <a
+              className="nav-link mobile-nav__link"
+              href={RATE_CARD_DOWNLOAD}
+              download={RATE_CARD_FILENAME}
+              onClick={() => setMenuOpen(false)}
+            >
+              Rate Card
+            </a>
             <div className="mobile-nav__meta">
               <div className="mobile-nav__status">
                 <div
@@ -1728,7 +1741,13 @@ export default function App() {
           <div className="brand-mark brand-mark--small">Bris<span style={{color:accent}}>VO</span></div>
           <div className="site-footer__links">
             {FOOTER_LINKS.map(label=>(
-              <span key={label} className="footer-link">{label}</span>
+              label === "Rate Card" ? (
+                <a key={label} className="footer-link footer-link--download" href={RATE_CARD_DOWNLOAD} download={RATE_CARD_FILENAME}>
+                  {label}
+                </a>
+              ) : (
+                <span key={label} className="footer-link">{label}</span>
+              )
             ))}
           </div>
           <p className="site-footer__copy">©2025 BrisVO. All rights reserved.</p>
