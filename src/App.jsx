@@ -26,6 +26,26 @@ const sb = async (path, opts = {}) => {
   return text ? JSON.parse(text) : [];
 };
 
+const invokeFunction = async (name, body) => {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "apikey": SUPABASE_ANON,
+      "Authorization": `Bearer ${SUPABASE_ANON}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+};
+
 const CATS = ["All","Corporate","Commercial","Character","Audiobook","E-Learning","Female","Male","IVR & On Hold","Jingle","Retail"];
 const accent = "#FF3D57";
 const GENDER_FILTERS = new Set(["Male", "Female"]);
@@ -993,14 +1013,15 @@ function NewsletterSection() {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if(!name.trim()||!email.trim()) return;
+    const nextName = name.trim();
+    const nextEmail = email.trim();
+    if(!nextName||!EMAIL_RE.test(nextEmail)||loading) return;
     setLoading(true);
     try {
-      await sb("subscribers", { method:"POST", body: JSON.stringify({name:name.trim(), email:email.trim()}), prefer:"return=minimal" });
+      await invokeFunction("newsletter-signup", { name: nextName, email: nextEmail });
       setSubmitted(true);
-    } catch {
-      // May fail if email already subscribed — still show success
-      setSubmitted(true);
+    } catch (error) {
+      console.error(error);
     }
     setLoading(false);
   };
