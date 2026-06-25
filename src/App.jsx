@@ -139,7 +139,7 @@ const STUDIOS = [
   },
   {
     name: "Jagger Rocky Studios",
-    description: "Your multi-use creative space in Coorparoo; podcast recording, video production, voice booth, rehearsal and event space.",
+    description: "Podcast recording, rehearsal rooms, voiceover recording with Source Connect, acting and voiceover classes, plus space for event hire.",
     website: "jaggerrocky.com",
     location: "Coorparoo, Brisbane",
     contacts: [],
