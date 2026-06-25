@@ -141,8 +141,8 @@ const STUDIOS = [
     name: "Jagger Rocky Studios",
     description: "Podcast recording, rehearsal rooms, voiceover recording with Source Connect, acting and voiceover classes, plus space for event hire.",
     website: "jaggerrocky.com",
-    location: "Coorparoo, Brisbane",
-    contacts: [],
+    location: "27 Birubi Street, Coorparoo",
+    contacts: [{ email: "studio@jaggerrocky.com" }],
   },
 ];
 
