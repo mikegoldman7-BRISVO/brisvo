@@ -73,3 +73,7 @@ See `.env.example` for the required keys.
 - This repository contains both the public website and the private dashboard UI.
 - Access to private dashboard actions depends on backend configuration and authenticated user access.
 - Sensitive project configuration should stay in environment variables and Supabase project settings, not in the repository.
+
+## Deployment
+
+Production is deployed on Vercel from the `main` branch of this repository (`mikegoldman7-BRISVO/brisvo`).
