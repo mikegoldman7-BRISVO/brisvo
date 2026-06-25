@@ -66,7 +66,7 @@ const NAV_ITEMS = [
   { label: "Female Talent", type: "filter", value: "Female" },
   { label: "Have You Heard?", type: "section", value: "newsletter" },
   { label: "About", type: "section", value: "about" },
-  { label: "Studio Links", type: "section", value: "footer" },
+  { label: "Studio Links", type: "section", value: "studios" },
 ];
 const RATE_CARD_DOWNLOAD = "/downloads/Voice-over-rate-card_v9-July.pdf";
 const RATE_CARD_FILENAME = "Voice-over-rate-card_v9-July.pdf";
@@ -76,6 +76,120 @@ const OFFER_ITEMS = [
   ["▶","Hear before you hire","Up to 6 demo reels per artist, stream instantly"],
   ["✉","Book with ease","Direct enquiry form on every profile"],
 ];
+
+const STUDIOS = [
+  {
+    name: "Rosco Audio",
+    description: "Brisbane's premier sound design & VO recording studio (35+ yrs in advertising audio); sound design, VO direction/casting, editing, mixing incl. Dolby.",
+    website: "roscoaudio.com.au",
+    location: "Tarragindi (37 Barnehurst St)",
+    contacts: [
+      { email: "rosco@roscoaudio.com.au", phone: "0413 129 777" },
+      { email: "sarah@roscoaudio.com.au", phone: "0497 484 062" },
+    ],
+  },
+  {
+    name: "Folklore Sound",
+    description: "Est. 2012, West End. QLD's first Dolby theatrically-certified studio; Emmy-winning film/TV sound design, ADR, re-recording mix and immersive/Atmos.",
+    website: "folkloresound.com",
+    location: "314 Montague Rd, West End QLD 4101",
+    contacts: [{ phone: "(07) 3180 8819" }],
+  },
+  {
+    name: "3P Studio",
+    description: "Award-winning full-service post house in Milton (one of QLD's largest artist-owned facilities); editorial, grade, sound, VFX, animation, with 3 audio suites + record booths. Founder Haley McDonald.",
+    website: "3pstudio.com.au",
+    location: "Milton (Black St)",
+    contacts: [{ note: "Contact via site / @threepstudio" }],
+  },
+  {
+    name: "xoPost",
+    description: "New (2025) boutique picture-and-sound post studio by Trelise Blade & Mike Lange (ex-Cutting Edge); offline edit, sound design/mix, colour grade, online finishing.",
+    website: "",
+    location: "",
+    contacts: [{ note: "via campaignbrief.com / badc.com.au, or Mike Lange / Trelise Blade on LinkedIn" }],
+  },
+  {
+    name: "Unison Sound",
+    description: "Top-tier TV/film/immersive sound post; design, Foley, ADR, Dolby Atmos. Clients incl. ABC, SBS, Netflix, Disney, Stan. Owner Wes Chew.",
+    website: "unisonsound.com.au",
+    location: "Suite 4, Level 1, 76 Commercial Rd, Teneriffe QLD 4005",
+    contacts: [{ email: "producer@unisonsound.com.au", phone: "+61 2 9383 4478" }],
+  },
+  {
+    name: "The Audio Suite",
+    description: "Brisbane sister of the Birmingham (UK) studio; audio post for feature film, high-end TV drama, docos and commercials. Within 30 mins of Brisbane airport.",
+    website: "audiosuite.co.uk",
+    location: "Brisbane",
+    contacts: [{ note: "Enquiry form (covers AU + UK)" }],
+  },
+  {
+    name: "Alchemix Recording Studios",
+    description: "Est. 1998, South Brisbane. Acoustically-treated rooms, large live room (6m ceilings); recording, production, mixing, mastering and VO.",
+    website: "alchemix.com.au",
+    location: "Unit 4/24 Brereton St, South Brisbane QLD 4101",
+    contacts: [],
+  },
+  {
+    name: "Underground Audio",
+    description: "Nundah music studio run by engineer Chris Brownbill (since 2014); engineering, mixing, production and VO. Day rates from ~$350.",
+    website: "undergroundaudio.com.au",
+    location: "22 Hamson Terrace, Nundah QLD 4012",
+    contacts: [{ phone: "0432 928 089" }],
+  },
+  {
+    name: "Jagger Rocky Studios",
+    description: "Your multi-use creative space in Coorparoo; podcast recording, video production, voice booth, rehearsal and event space.",
+    website: "jaggerrocky.com",
+    location: "Coorparoo, Brisbane",
+    contacts: [],
+  },
+];
+
+function StudiosSection() {
+  return (
+    <section id="studios" className="studios-section anchor-target">
+      <div className="studios-section__inner content-shell">
+        <div className="section-eyebrow">Studio Links</div>
+        <h2 className="studios-section__title">Where Brisbane's voices come to life</h2>
+        <p className="studios-section__intro">A curated list of trusted recording, sound design and post-production studios across Brisbane and beyond.</p>
+        <div className="studios-grid">
+          {STUDIOS.map(studio => (
+            <div key={studio.name} className="studio-card">
+              <h3 className="studio-card__name">{studio.name}</h3>
+              <p className="studio-card__desc">{studio.description}</p>
+              <div className="studio-card__meta">
+                {studio.website && (
+                  <div className="studio-card__row">
+                    <span className="studio-card__label">Web</span>
+                    <a className="studio-card__link" href={`https://${studio.website}`} target="_blank" rel="noopener noreferrer">{studio.website}</a>
+                  </div>
+                )}
+                {studio.location && (
+                  <div className="studio-card__row">
+                    <span className="studio-card__label">Visit</span>
+                    <span className="studio-card__text">{studio.location}</span>
+                  </div>
+                )}
+                {studio.contacts.map((c, i) => (
+                  <div key={i} className="studio-card__row">
+                    <span className="studio-card__label">{c.note ? "Info" : "Contact"}</span>
+                    <span className="studio-card__text">
+                      {c.email && <a className="studio-card__link" href={`mailto:${c.email}`}>{c.email}</a>}
+                      {c.email && c.phone && <span className="studio-card__sep"> · </span>}
+                      {c.phone && <a className="studio-card__link" href={`tel:${c.phone.replace(/[^+\d]/g, "")}`}>{c.phone}</a>}
+                      {c.note}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -1751,6 +1865,8 @@ export default function App() {
           </div>
         </div>
       </section>
+
+      <StudiosSection/>
 
       <NewsletterSection/>
 

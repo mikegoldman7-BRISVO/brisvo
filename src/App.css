@@ -1389,3 +1389,124 @@
     justify-content: center;
   }
 }
+
+/* ── Studio Links ─────────────────────────────────────────── */
+.studios-section {
+  padding: 64px var(--section-padding) 72px;
+  background: #0d0d0d;
+  border-top: 1px solid #1e1e1e;
+}
+
+.studios-section__inner {
+  text-align: center;
+}
+
+.studios-section__title {
+  margin: 0 0 14px;
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 4vw, 46px);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.15;
+}
+
+.studios-section__intro {
+  margin: 0 auto 40px;
+  max-width: 620px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.studios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 20px;
+  text-align: left;
+}
+
+.studio-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.studio-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 61, 87, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.studio-card__name {
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.studio-card__desc {
+  margin: 0 0 18px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  line-height: 1.7;
+  flex-grow: 1;
+}
+
+.studio-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.studio-card__row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.studio-card__label {
+  color: #FF3D57;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.studio-card__text {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.studio-card__link {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 61, 87, 0.4);
+  transition: color 0.15s ease, border-color 0.15s ease;
+  word-break: break-word;
+}
+
+.studio-card__link:hover {
+  color: #FF3D57;
+  border-color: #FF3D57;
+}
+
+.studio-card__sep {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 600px) {
+  .studios-grid {
+    grid-template-columns: 1fr;
+  }
+}
