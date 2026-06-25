@@ -26,24 +26,36 @@ const sb = async (path, opts = {}) => {
   return text ? JSON.parse(text) : [];
 };
 
-const invokeFunction = async (name, body) => {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
-    method: "POST",
-    headers: {
-      "apikey": SUPABASE_ANON,
-      "Authorization": `Bearer ${SUPABASE_ANON}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+const invokeFunction = async (name, body, retries = 2) => {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+        method: "POST",
+        headers: {
+          "apikey": SUPABASE_ANON,
+          "Authorization": `Bearer ${SUPABASE_ANON}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err);
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || `Request failed (${res.status})`);
+      }
+
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
+    } catch (error) {
+      lastError = error;
+      // Supabase Edge Functions cold-start; wait and retry before giving up.
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, 1200 * (attempt + 1)));
+      }
+    }
   }
-
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  throw lastError;
 };
 
 const CATS = ["All","Corporate","Commercial","Character","Audiobook","E-Learning","Female","Male","IVR & On Hold","Jingle","Retail"];
@@ -1013,17 +1025,20 @@ function NewsletterSection() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     const nextName = name.trim();
     const nextEmail = email.trim();
     if(!nextName||!EMAIL_RE.test(nextEmail)||loading) return;
+    setError("");
     setLoading(true);
     try {
       await invokeFunction("newsletter-signup", { name: nextName, email: nextEmail });
       setSubmitted(true);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong \u2014 please try again in a moment.");
     }
     setLoading(false);
   };
@@ -1067,6 +1082,9 @@ function NewsletterSection() {
               {loading?"Signing up…":"Sign Up"}
             </button>
             <p className="newsletter-form__hint">No spam. Unsubscribe anytime.</p>
+            {error && (
+              <p className="newsletter-form__error" style={{ color: "#FF6B6B", marginTop: "0.75rem", textAlign: "center" }}>{error}</p>
+            )}
           </div>
         )}
       </div>
