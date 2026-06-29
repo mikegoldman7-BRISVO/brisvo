@@ -144,6 +144,13 @@ const STUDIOS = [
     location: "27 Birubi Street, Coorparoo",
     contacts: [{ email: "studio@jaggerrocky.com" }],
   },
+  {
+    name: "Sounds Like Butter",
+    description: "Award-winning Audio Producer.",
+    website: "",
+    location: "",
+    contacts: [{ name: "Stevie Leigh", email: "leigh@soundslikebutter.com", phone: "0407 620 039" }],
+  },
 ];
 
 function StudiosSection() {
@@ -175,6 +182,8 @@ function StudiosSection() {
                   <div key={i} className="studio-card__row">
                     <span className="studio-card__label">{c.note ? "Info" : "Contact"}</span>
                     <span className="studio-card__text">
+                      {c.name && <span className="studio-card__contact-name">{c.name}</span>}
+                      {c.name && (c.email || c.phone) && <br />}
                       {c.email && <a className="studio-card__link" href={`mailto:${c.email}`}>{c.email}</a>}
                       {c.email && c.phone && <span className="studio-card__sep"> · </span>}
                       {c.phone && <a className="studio-card__link" href={`tel:${c.phone.replace(/[^+\d]/g, "")}`}>{c.phone}</a>}

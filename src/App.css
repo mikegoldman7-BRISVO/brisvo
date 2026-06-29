@@ -1510,3 +1510,8 @@
     grid-template-columns: 1fr;
   }
 }
+
+.studio-card__contact-name {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
