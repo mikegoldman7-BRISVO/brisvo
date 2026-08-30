@@ -24,11 +24,19 @@ It also includes a private artist dashboard for approved users to maintain their
 - Change password
 - Reset password by email
 
+## Mobile app
+
+`mobile/` holds **REAL VOICES**, the iOS and Android app for the collective.
+It is an Expo / React Native app that reads from this same Supabase project,
+so published artists and demos appear on the website and in the app without a
+separate CMS. See `mobile/README.md` for setup and App Store submission.
+
 ## Tech
 
 - React
 - Vite
 - Supabase
+- Expo / React Native (`mobile/`)
 
 ## Local development
 
