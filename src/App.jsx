@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import "./App.css";
 import { supabase } from "./lib/supabase";
 import Dashboard from "./Dashboard.jsx";
@@ -1034,53 +1035,137 @@ function syncArtistParamInLocation(artist) {
   }
 }
 
+function isMobileDevice() {
+  if (typeof window === "undefined") return false;
+  const coarse = window.matchMedia?.("(pointer: coarse)").matches;
+  const narrow = window.matchMedia?.("(max-width: 768px)").matches;
+  const uaMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+  return Boolean(coarse || narrow || uaMobile);
+}
+
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to the legacy method (needed in some in-app browsers)
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "0";
+    ta.style.left = "0";
+    ta.style.opacity = "0";
+    ta.style.fontSize = "16px"; // stops iOS zooming in
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 function ShareButton({ talent, colour }) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const [status, setStatus] = useState("");
   const wrapRef = useRef(null);
   const shareUrl = getArtistShareUrl(talent);
+  const shareTitle = `${talent.name} | BrisVO`;
   const shareText = `Check out ${talent.name}, Australian voice artist on BrisVO`;
   const u = encodeURIComponent(shareUrl);
   const t = encodeURIComponent(shareText);
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
+  // Desktop popover: close when clicking elsewhere
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || mobile) return undefined;
     const onDown = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open, mobile]);
 
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-    } catch {
-      window.prompt("Copy this link:", shareUrl);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Mobile sheet: close on Escape, stop background scrolling
+  useEffect(() => {
+    if (!open || !mobile) return undefined;
+    const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } };
+    window.addEventListener("keydown", onKey, true);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, mobile]);
+
+  const flash = msg => {
+    setStatus(msg);
+    setTimeout(() => setStatus(""), 2200);
   };
 
-  const handleClick = async () => {
-    // Phones/tablets: open the native share sheet (Instagram, WhatsApp, Messages, etc.)
-    const isTouch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
-    if (isTouch && navigator.share) {
-      try {
-        await navigator.share({ title: `${talent.name} | BrisVO`, text: shareText, url: shareUrl });
-        return;
-      } catch (e) {
-        if (e?.name === "AbortError") return;
+  const copyLink = async () => {
+    const ok = await copyText(shareUrl);
+    if (ok) {
+      flash("Link copied!");
+      setOpen(false);
+    } else {
+      window.prompt("Copy this link:", shareUrl);
+    }
+  };
+
+  const nativeShare = async () => {
+    try {
+      await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+      setOpen(false);
+    } catch (e) {
+      if (e?.name !== "AbortError") {
+        // Native share not allowed here — keep the menu open so another option can be picked
+        console.warn("Native share failed:", e);
       }
     }
+  };
+
+  const handleClick = () => {
+    setMobile(isMobileDevice());
     setOpen(o => !o);
   };
 
   const links = [
+    { label: "WhatsApp", href: `https://api.whatsapp.com/send?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}` },
     { label: "Facebook", href: `https://www.facebook.com/sharer/sharer.php?u=${u}` },
+    ...(mobile ? [{ label: "Text message", href: `sms:?&body=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, sameTab: true }] : []),
     { label: "X / Twitter", href: `https://twitter.com/intent/tweet?url=${u}&text=${t}` },
     { label: "LinkedIn", href: `https://www.linkedin.com/sharing/share-offsite/?url=${u}` },
-    { label: "WhatsApp", href: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}` },
-    { label: "Email", href: `mailto:?subject=${encodeURIComponent(`${talent.name} | BrisVO`)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}` },
+    { label: "Email", href: `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`, sameTab: true },
   ];
+
+  const items = (
+    <>
+      {mobile && canNativeShare && (
+        <button type="button" role="menuitem" className="share__item share__item--primary" onClick={nativeShare}>
+          Share via your phone…
+        </button>
+      )}
+      {links.map(l => (
+        <a key={l.label} role="menuitem" className="share__item" href={l.href}
+          target={l.sameTab ? undefined : "_blank"} rel="noopener noreferrer"
+          onClick={() => setOpen(false)}>
+          {l.label}
+        </a>
+      ))}
+      <button type="button" role="menuitem" className="share__item" onClick={copyLink}>
+        Copy link
+      </button>
+    </>
+  );
 
   return (
     <div className="share" ref={wrapRef}>
@@ -1088,21 +1173,22 @@ function ShareButton({ talent, colour }) {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
         </svg>
-        {copied ? "Link copied!" : "Share"}
+        {status || "Share"}
       </button>
-      {open && (
+      {open && !mobile && (
         <div className="share__menu" role="menu" style={{ "--share-color": colour }}>
-          {links.map(l => (
-            <a key={l.label} role="menuitem" className="share__item" href={l.href}
-              target={l.label === "Email" ? undefined : "_blank"} rel="noopener noreferrer"
-              onClick={() => setOpen(false)}>
-              {l.label}
-            </a>
-          ))}
-          <button type="button" role="menuitem" className="share__item" onClick={() => { copyLink(); setOpen(false); }}>
-            Copy link
-          </button>
+          {items}
         </div>
+      )}
+      {open && mobile && typeof document !== "undefined" && createPortal(
+        <div className="share-sheet" onClick={e => e.target === e.currentTarget && setOpen(false)}>
+          <div className="share-sheet__panel" role="menu" style={{ "--share-color": colour }}>
+            <div className="share-sheet__title">Share {talent.name}</div>
+            {items}
+            <button type="button" className="share-sheet__cancel" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
