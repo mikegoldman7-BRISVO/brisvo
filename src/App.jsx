@@ -998,6 +998,116 @@ function TalentCard({ talent, onClick }) {
   );
 }
 
+// ── SHARE LINKS ────────────────────────────────────────────────
+const ARTIST_QUERY_PARAM = "artist";
+
+function getArtistShareSlug(artist) {
+  return createArtistSlug(artist?.name, artist?.id);
+}
+
+function getArtistShareUrl(artist) {
+  if (typeof window === "undefined") return "";
+  const url = new URL(window.location.origin + window.location.pathname);
+  url.searchParams.set(ARTIST_QUERY_PARAM, getArtistShareSlug(artist));
+  return url.toString();
+}
+
+function readArtistParamFromLocation() {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get(ARTIST_QUERY_PARAM) || "";
+}
+
+function findArtistByShareParam(artists, param) {
+  if (!param) return null;
+  const wanted = param.toLowerCase();
+  return artists.find(a => getArtistShareSlug(a) === wanted || String(a.id).toLowerCase() === wanted) || null;
+}
+
+function syncArtistParamInLocation(artist) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (artist) url.searchParams.set(ARTIST_QUERY_PARAM, getArtistShareSlug(artist));
+  else url.searchParams.delete(ARTIST_QUERY_PARAM);
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+    window.history.replaceState(window.history.state, document.title, next);
+  }
+}
+
+function ShareButton({ talent, colour }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const wrapRef = useRef(null);
+  const shareUrl = getArtistShareUrl(talent);
+  const shareText = `Check out ${talent.name}, Australian voice artist on BrisVO`;
+  const u = encodeURIComponent(shareUrl);
+  const t = encodeURIComponent(shareText);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      window.prompt("Copy this link:", shareUrl);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleClick = async () => {
+    // Phones/tablets: open the native share sheet (Instagram, WhatsApp, Messages, etc.)
+    const isTouch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    if (isTouch && navigator.share) {
+      try {
+        await navigator.share({ title: `${talent.name} | BrisVO`, text: shareText, url: shareUrl });
+        return;
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+      }
+    }
+    setOpen(o => !o);
+  };
+
+  const links = [
+    { label: "Facebook", href: `https://www.facebook.com/sharer/sharer.php?u=${u}` },
+    { label: "X / Twitter", href: `https://twitter.com/intent/tweet?url=${u}&text=${t}` },
+    { label: "LinkedIn", href: `https://www.linkedin.com/sharing/share-offsite/?url=${u}` },
+    { label: "WhatsApp", href: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}` },
+    { label: "Email", href: `mailto:?subject=${encodeURIComponent(`${talent.name} | BrisVO`)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}` },
+  ];
+
+  return (
+    <div className="share" ref={wrapRef}>
+      <button type="button" className="share__button" onClick={handleClick} aria-haspopup="menu" aria-expanded={open}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+        {copied ? "Link copied!" : "Share"}
+      </button>
+      {open && (
+        <div className="share__menu" role="menu" style={{ "--share-color": colour }}>
+          {links.map(l => (
+            <a key={l.label} role="menuitem" className="share__item" href={l.href}
+              target={l.label === "Email" ? undefined : "_blank"} rel="noopener noreferrer"
+              onClick={() => setOpen(false)}>
+              {l.label}
+            </a>
+          ))}
+          <button type="button" role="menuitem" className="share__item" onClick={() => { copyLink(); setOpen(false); }}>
+            Copy link
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── TALENT MODAL ──────────────────────────────────────────────
 function TalentModal({ talent, onClose, detailLoading = false, detailError = "" }) {
   const [activeDemo, setActiveDemo] = useState(null);
@@ -1063,6 +1173,7 @@ function TalentModal({ talent, onClose, detailLoading = false, detailError = "" 
                 🎙 {demoCount} demo reel{demoCount>1?"s":""}
               </div>
             )}
+            <ShareButton talent={talent} colour={colour}/>
           </div>
         </div>
         <div className="modal-body">
@@ -1238,6 +1349,7 @@ export default function App() {
   const sessionUser = session?.user ?? null;
 
   const closeSelectedArtist = () => {
+    syncArtistParamInLocation(null);
     setSelected(null);
     setSelectedDetail(null);
     setSelectedDetailLoading(false);
@@ -1247,6 +1359,7 @@ export default function App() {
   const handleArtistSelect = artist => {
     const cachedDetail = artistDetailCacheRef.current.get(artist.id);
 
+    syncArtistParamInLocation(artist);
     setSelected(artist);
     setSelectedDetail(cachedDetail ? normaliseArtistDetail(cachedDetail, artist) : null);
     setSelectedDetailLoading(!cachedDetail);
@@ -1457,7 +1570,11 @@ export default function App() {
     const initArtists = async () => {
       try {
         const data = await fetchPublishedArtistSummaries();
-        if (!cancelled) setArtists(shuffleArtists(data));
+        if (!cancelled) {
+          setArtists(shuffleArtists(data));
+          const sharedArtist = findArtistByShareParam(data, readArtistParamFromLocation());
+          if (sharedArtist) handleArtistSelect(sharedArtist);
+        }
       } catch(e) {
         if (!cancelled) console.error("Failed to load artists:", e);
       } finally {
