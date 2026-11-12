@@ -1515,3 +1515,69 @@
   color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
 }
+
+/* ── Share button (talent modal) ─────────────────────────────── */
+.share {
+  position: relative;
+  margin-top: 14px;
+  width: fit-content;
+}
+
+.share__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 15px;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.share__button:hover,
+.share__button:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.share__menu {
+  position: absolute;
+  left: calc(100% + 10px);
+  bottom: 0;
+  z-index: 20;
+  min-width: 170px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid var(--share-color, var(--accent));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.share__item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #111;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.share__item:hover,
+.share__item:focus-visible {
+  background: #f2f2f2;
+}
